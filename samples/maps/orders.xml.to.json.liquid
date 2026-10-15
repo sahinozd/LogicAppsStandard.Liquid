@@ -1,0 +1,15 @@
+{%- comment -%}
+    XmlToJson. XML lookups ignore namespaces and case, and return the FIRST matching element only.
+    To get all Order elements, loop over the parent: JSONArrayFor ... where Order keeps only elements named Order.
+{%- endcomment -%}
+{
+    "customer": "{{ content.Orders.Customer }}",
+    "orders": [
+        {%- JSONArrayFor order in content.Orders where Order -%}
+        {
+            "id": "{{ order.Id }}",
+            "total": {{ order.Total }}
+        }
+        {%- endJSONArrayFor -%}
+    ]
+}

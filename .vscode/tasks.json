@@ -1,0 +1,72 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["build", "${workspaceFolder}/LogicAppsStandard.Liquid.slnx", "/property:GenerateFullPaths=true", "/consoleloggerparameters:NoSummary"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "test",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["test", "${workspaceFolder}/LogicAppsStandard.Liquid.slnx"],
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "la-liquid: validate current map",
+      "detail": "Validates the open .liquid file. Findings appear in the Problems panel.",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["run", "--project", "${workspaceFolder}/source/Liquid.Cli", "--", "validate", "--map", "${file}"],
+      "problemMatcher": {
+        "base": "$msCompile",
+        "fileLocation": "absolute"
+      },
+      "presentation": { "reveal": "always", "clear": true }
+    },
+    {
+      "label": "la-liquid: transform current map",
+      "detail": "Runs the open .liquid file with an input file and writes the output next to the input.",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run", "--project", "${workspaceFolder}/source/Liquid.Cli", "--",
+        "transform", "--map", "${file}", "--input", "${input:inputFile}", "--output", "${input:outputFile}"
+      ],
+      "problemMatcher": {
+        "base": "$msCompile",
+        "fileLocation": "absolute"
+      },
+      "presentation": { "reveal": "always", "clear": true }
+    },
+    {
+      "label": "la-liquid: test samples",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["run", "--project", "${workspaceFolder}/source/Liquid.Cli", "--", "test", "--suite", "${workspaceFolder}/samples/liquid-tests.json"],
+      "problemMatcher": {
+        "base": "$msCompile",
+        "fileLocation": "absolute"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "inputFile",
+      "type": "promptString",
+      "description": "Input message (JSON or XML)",
+      "default": "${workspaceFolder}/samples/inputs/orders.json"
+    },
+    {
+      "id": "outputFile",
+      "type": "promptString",
+      "description": "Output file (.json gives a *ToJson transform, other extensions *ToText)",
+      "default": "${workspaceFolder}/samples/output/result.json"
+    }
+  ]
+}

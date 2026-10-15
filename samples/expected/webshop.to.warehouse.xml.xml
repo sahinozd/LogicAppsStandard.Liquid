@@ -1,0 +1,20 @@
+<Envelope xmlns="http://example.org/warehouse">
+   <Body>
+      <Shipments reference="R-1234">
+         <Warehouse>WH-ANR</Warehouse>
+
+         <Shipment>
+            <Sequence>1</Sequence>
+            <Month>202609</Month>
+
+
+            <Quantity>40.5</Quantity>
+
+
+            <Quantity>-12</Quantity>
+
+         </Shipment>
+
+      </Shipments>
+   </Body>
+</Envelope>

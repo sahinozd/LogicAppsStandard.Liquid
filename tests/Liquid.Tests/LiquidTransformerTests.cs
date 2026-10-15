@@ -1,0 +1,213 @@
+using System.Globalization;
+using LogicApps.Liquid.Constants;
+using LogicApps.Liquid.Enums;
+using LogicApps.Liquid.Models;
+using Newtonsoft.Json;
+using NUnit.Framework;
+
+namespace LogicApps.Liquid.Tests;
+
+/// <summary>
+/// Pins down how Logic Apps renders Liquid. The expected values were observed on the real Logic Apps engine
+/// (workflow extension bundle 1.170.91); the conformance tests compare against that engine directly.
+/// </summary>
+[TestFixture]
+public sealed class LiquidTransformerTests
+{
+    private static string Render(string map, string input, LiquidTransformKind kind = LiquidTransformKind.JsonToText, string culture = "en-US")
+    {
+        var transformer = new LiquidTransformer(new LiquidTransformOptions { Culture = CultureInfo.GetCultureInfo(culture), Lint = false });
+        var result = transformer.Transform(map, input, kind);
+        Assert.That(result.RenderedText, Is.Not.Null, string.Join(Environment.NewLine, result.Diagnostics));
+        return result.RenderedText!;
+    }
+
+    [Test]
+    public void Constructor_Should_Throw_ArgumentNullException_When_Options_Is_Null()
+    {
+        // Act & Assert
+        var exception = Assert.Throws<ArgumentNullException>(() =>
+        {
+            _ = new LiquidTransformer(null!);
+        });
+
+        Assert.That(exception.ParamName, Is.EqualTo("options"));
+    }
+
+    [Test]
+    public void Transform_Should_Apply_Filter_When_Filter_Uses_CSharp_Naming()
+    {
+        // Act
+        var output = Render("{{ content.name | Upcase }}", """{"name":"sahin"}""");
+
+        // Assert
+        Assert.That(output, Is.EqualTo("SAHIN"));
+    }
+
+    [Test]
+    public void Transform_Should_Skip_Filter_When_Filter_Uses_Ruby_Naming()
+    {
+        // Act
+        var output = Render("{{ content.name | upcase }}", """{"name":"sahin"}""");
+
+        // Assert
+        Assert.That(output, Is.EqualTo("sahin"));
+    }
+
+    [Test]
+    public void Transform_Should_Pass_Value_Through_When_Filter_Is_Unknown()
+    {
+        // Act
+        var output = Render("{% assign x = content.items | id: 'b' %}{{ x[0].id }}", """{"items":[{"id":"a"},{"id":"b"}]}""");
+
+        // Assert
+        Assert.That(output, Is.EqualTo("a"));
+    }
+
+    [Test]
+    public void Transform_Should_Render_Empty_String_Not_Nil_When_Json_Value_Is_Null()
+    {
+        // Act
+        var output = Render("[{{ content.v }}]{% if content.v == nil %}nil{% else %}not nil{% endif %}", """{"v":null}""");
+
+        // Assert
+        Assert.That(output, Is.EqualTo("[]not nil"));
+    }
+
+    [Test]
+    public void Transform_Should_Treat_Property_As_Nil_When_Property_Is_Missing()
+    {
+        // Act
+        var output = Render("{% if content.missing == nil %}nil{% endif %}", "{}");
+
+        // Assert
+        Assert.That(output, Is.EqualTo("nil"));
+    }
+
+    [Test]
+    public void Transform_Should_Keep_Date_As_String_When_Input_Contains_Date()
+    {
+        // Act
+        var output = Render("{{ content.d }}", """{"d":"2026-10-15T10:00:00Z"}""");
+
+        // Assert
+        Assert.That(output, Is.EqualTo("2026-10-15T10:00:00Z"));
+    }
+
+    [TestCase("en-US", "3")]
+    [TestCase("nl-NL", "30")]
+    public void Transform_Should_Parse_Decimal_Literal_With_Culture_When_Culture_Is_Set(string culture, string expected)
+    {
+        // Act
+        var output = Render("{{ 1.5 | Times: 2 }}", "{}", culture: culture);
+
+        // Assert
+        Assert.That(output, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void Transform_Should_Convert_String_To_Number_When_Multiplied_With_One_Point_Zero()
+    {
+        // Act
+        var output = Render("{{ content.s | Times: 1.0 | Plus: 1 }}", """{"s":"4"}""");
+
+        // Assert
+        Assert.That(output, Is.EqualTo("5"));
+    }
+
+    [Test]
+    public void Transform_Should_Write_Commas_Between_Items_When_Using_JsonArrayFor()
+    {
+        // Act
+        var output = Render("[{% JSONArrayFor x in content.a %}{{ x }}{% endJSONArrayFor %}]", """{"a":[1,2,3]}""");
+
+        // Assert
+        Assert.That(output, Is.EqualTo("[1,2,3]"));
+    }
+
+    [Test]
+    public void Transform_Should_Ignore_Namespace_And_Case_And_Return_First_Match_When_Input_Is_Xml()
+    {
+        // Arrange
+        const string xml = """<n:Root xmlns:n="urn:x"><n:Item>a</n:Item><n:Item>b</n:Item></n:Root>""";
+
+        // Act
+        var output = Render("{{ content.root.item }}", xml, LiquidTransformKind.XmlToText);
+
+        // Assert
+        Assert.That(output, Is.EqualTo("a"));
+    }
+
+    [Test]
+    public void Transform_Should_Select_Elements_By_Name_When_JsonArrayFor_Has_Where()
+    {
+        // Arrange
+        const string xml = "<Root><Name>x</Name><Item>a</Item><Item>b</Item></Root>";
+
+        // Act
+        var output = Render("{% JSONArrayFor i in content.Root where Item %}\"{{ i }}\"{% endJSONArrayFor %}", xml, LiquidTransformKind.XmlToText);
+
+        // Assert
+        Assert.That(output, Is.EqualTo("\"a\",\"b\""));
+    }
+
+    [Test]
+    public void Transform_Should_Parse_Output_When_Kind_Is_JsonToJson()
+    {
+        // Act
+        var result = new LiquidTransformer().Transform("""{"n": {{ content.n }}}""", """{"n":1.10}""", LiquidTransformKind.JsonToJson);
+
+        // Assert
+        Assert.That(result.Succeeded, Is.True);
+        Assert.That(result.Output!["n"]!.ToString(Formatting.None), Is.EqualTo("1.1"));
+    }
+
+    [Test]
+    public void Transform_Should_Report_Location_When_Output_Is_Not_Valid_Json()
+    {
+        // Act
+        var result = new LiquidTransformer().Transform("{\n  \"a\": {{ content.s }}\n}", """{"s":"text"}""", LiquidTransformKind.JsonToJson);
+
+        // Assert
+        var diagnostic = result.Diagnostics.Single(d => d.Code == DiagnosticCodes.InvalidJsonOutput);
+        Assert.That(diagnostic.Source, Is.EqualTo(DiagnosticSource.Output));
+        Assert.That(diagnostic.Line, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void Transform_Should_Write_Error_Into_Output_And_Report_It_When_Rendering_Fails()
+    {
+        // Act
+        var result = new LiquidTransformer().Transform("{% include 'x' %}", "{}", LiquidTransformKind.JsonToText);
+
+        // Assert
+        Assert.That(result.RenderedText, Does.Contain("Liquid error"));
+        Assert.That(result.Diagnostics.Select(d => d.Code), Does.Contain(DiagnosticCodes.RenderError));
+    }
+
+    [Test]
+    public void Transform_Should_Report_Warning_When_Value_Is_Missing_In_Input()
+    {
+        // Act
+        var result = new LiquidTransformer().Transform("Name: {{ content.nmae }}", """{"name":"x"}""", LiquidTransformKind.JsonToText);
+
+        // Assert
+        Assert.That(result.Succeeded, Is.True);
+        Assert.That(result.Diagnostics.Single().Code, Is.EqualTo(DiagnosticCodes.MissingValue));
+    }
+
+    [Test]
+    public void Transform_Should_Report_Error_When_Input_Is_Invalid()
+    {
+        // Act
+        var json = new LiquidTransformer().Transform("x", "{ broken", LiquidTransformKind.JsonToText);
+        var xml = new LiquidTransformer().Transform("x", "<a>", LiquidTransformKind.XmlToText);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(json.Diagnostics.Single().Code, Is.EqualTo(DiagnosticCodes.InvalidJsonInput));
+            Assert.That(xml.Diagnostics.Single().Code, Is.EqualTo(DiagnosticCodes.InvalidXmlInput));
+        });
+    }
+}

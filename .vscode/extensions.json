@@ -1,0 +1,7 @@
+{
+  "recommendations": [
+    "ms-dotnettools.csdevkit",
+    "ms-azure-devops.azure-pipelines",
+    "sissel.shopify-liquid"
+  ]
+}

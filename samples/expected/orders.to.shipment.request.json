@@ -1,0 +1,17 @@
+{
+  "requestId": "REQ-0001",
+  "packages": [
+    {
+      "sku": "ABC-100",
+      "shipDate": "20261003",
+      "weightKg": 12.5,
+      "carrier": "EXPRESS"
+    },
+    {
+      "sku": "ABC-200",
+      "shipDate": "20261011",
+      "weightKg": 3.2,
+      "carrier": "STANDARD"
+    }
+  ]
+}

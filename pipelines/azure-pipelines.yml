@@ -1,0 +1,73 @@
+# Builds, tests and packs the la-liquid tool.
+# The conformance tests compare against the real Logic Apps engine. They need a workflow extension bundle on the agent,
+# which is downloaded here from the public Azure Functions CDN. Without it, they are reported as ignored.
+
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: windows-latest
+
+variables:
+  buildConfiguration: Release
+  dotnetVersion: 10.0.x
+  # Workflow extension bundle the conformance tests run against. Keep in line with LogicAppsLiquidRuntime.VerifiedExtensionBundleVersion.
+  workflowBundleVersion: 1.170.91
+
+steps:
+  - task: UseDotNet@2
+    displayName: Install .NET $(dotnetVersion)
+    inputs:
+      packageType: sdk
+      version: $(dotnetVersion)
+
+  - pwsh: |
+      $zip = Join-Path $env:AGENT_TEMPDIRECTORY 'workflow-bundle.zip'
+      $target = Join-Path $env:AGENT_TEMPDIRECTORY 'workflow-bundle'
+      $url = "https://cdn.functions.azure.com/public/ExtensionBundles/Microsoft.Azure.Functions.ExtensionBundle.Workflows/$(workflowBundleVersion)/Microsoft.Azure.Functions.ExtensionBundle.Workflows.$(workflowBundleVersion)_any-any.zip"
+      Invoke-WebRequest -Uri $url -OutFile $zip
+      Expand-Archive -Path $zip -DestinationPath $target -Force
+      Write-Host "##vso[task.setvariable variable=LOGICAPPS_WORKFLOW_BUNDLE_BIN]$(Join-Path $target 'bin')"
+    displayName: Download Logic Apps workflow extension bundle $(workflowBundleVersion)
+    continueOnError: true
+
+  - script: dotnet build LogicAppsStandard.Liquid.slnx --configuration $(buildConfiguration)
+    displayName: Build
+
+  - script: dotnet test LogicAppsStandard.Liquid.slnx --configuration $(buildConfiguration) --no-build --logger trx --results-directory $(Agent.TempDirectory)/test-results
+    displayName: Unit and conformance tests
+
+  - task: PublishTestResults@2
+    displayName: Publish .NET test results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: VSTest
+      testResultsFiles: $(Agent.TempDirectory)/test-results/*.trx
+
+  # Dogfooding: run the sample maps through the tool, exactly like a consumer pipeline would.
+  - script: dotnet run --project source/Liquid.Cli --configuration $(buildConfiguration) --no-build -- test --suite samples/liquid-tests.json --junit $(Agent.TempDirectory)/liquid-results/samples.xml
+    displayName: Liquid sample tests
+
+  - task: PublishTestResults@2
+    displayName: Publish Liquid test results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: $(Agent.TempDirectory)/liquid-results/*.xml
+      testRunTitle: Liquid maps
+
+  - script: dotnet pack LogicAppsStandard.Liquid.slnx --configuration $(buildConfiguration) --no-build --output $(Build.ArtifactStagingDirectory)/packages
+    displayName: Pack
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish packages
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)/packages
+      artifact: packages

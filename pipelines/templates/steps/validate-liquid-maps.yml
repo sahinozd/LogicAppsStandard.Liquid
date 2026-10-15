@@ -1,0 +1,77 @@
+# Reusable steps for integration pipelines: validates all Liquid maps of a Logic App and, optionally, runs a test suite.
+#
+# Usage in a build stage of an integration pipeline:
+#
+#   steps:
+#     - template: templates/steps/validate-liquid-maps.yml
+#       parameters:
+#         mapsFolder: '$(Build.SourcesDirectory)/src/LogicApp/Artifacts/Maps'
+#         testSuite: '$(Build.SourcesDirectory)/tests/Liquid/liquid-tests.json'
+#
+# Findings are shown on the pipeline run summary with file and line, and the test results are published to the Tests tab.
+
+parameters:
+  - name: mapsFolder
+    type: string
+  - name: testSuite
+    type: string
+    default: ''
+  - name: warningsAsErrors
+    type: boolean
+    default: false
+  - name: culture
+    type: string
+    default: en-US
+  - name: toolVersion
+    type: string
+    default: ''
+  # Optional Azure Artifacts feed that hosts LogicApps.Liquid.Cli. Leave empty to install from nuget.org.
+  - name: toolFeed
+    type: string
+    default: ''
+  - name: dotnetVersion
+    type: string
+    default: 10.0.x
+
+steps:
+  - task: UseDotNet@2
+    displayName: Install .NET ${{ parameters.dotnetVersion }} for la-liquid
+    inputs:
+      packageType: sdk
+      version: ${{ parameters.dotnetVersion }}
+
+  - ${{ if ne(parameters.toolFeed, '') }}:
+      - task: NuGetAuthenticate@1
+        displayName: Authenticate to the la-liquid feed
+
+  - pwsh: |
+      $arguments = @('tool', 'install', 'LogicApps.Liquid.Cli', '--tool-path', '$(Agent.TempDirectory)/la-liquid')
+      if ('${{ parameters.toolVersion }}') { $arguments += @('--version', '${{ parameters.toolVersion }}') }
+      if ('${{ parameters.toolFeed }}') { $arguments += @('--add-source', '${{ parameters.toolFeed }}') }
+      dotnet @arguments
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      Write-Host "##vso[task.prependpath]$(Agent.TempDirectory)/la-liquid"
+    displayName: Install la-liquid
+
+  - pwsh: |
+      $arguments = @('validate', '--map', '${{ parameters.mapsFolder }}', '--culture', '${{ parameters.culture }}')
+      if ('${{ parameters.warningsAsErrors }}' -eq 'True') { $arguments += '--warnings-as-errors' }
+      la-liquid @arguments
+      exit $LASTEXITCODE
+    displayName: Validate Liquid maps
+
+  - ${{ if ne(parameters.testSuite, '') }}:
+      - pwsh: |
+          $arguments = @('test', '--suite', '${{ parameters.testSuite }}', '--culture', '${{ parameters.culture }}', '--junit', '$(Agent.TempDirectory)/la-liquid-results/liquid-tests.xml')
+          if ('${{ parameters.warningsAsErrors }}' -eq 'True') { $arguments += '--warnings-as-errors' }
+          la-liquid @arguments
+          exit $LASTEXITCODE
+        displayName: Run Liquid map tests
+
+      - task: PublishTestResults@2
+        displayName: Publish Liquid map test results
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFormat: JUnit
+          testResultsFiles: $(Agent.TempDirectory)/la-liquid-results/*.xml
+          testRunTitle: Liquid maps

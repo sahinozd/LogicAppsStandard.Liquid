@@ -1,0 +1,19 @@
+{
+    "reference": "R-1234",
+    "warehouses": [
+        { "country": "NL", "code": "WH-AMS" },
+        { "country": "BE", "code": "WH-ANR" }
+    ],
+    "message": {
+        "shipTo": { "country": "BE", "city": "Antwerp" },
+        "shipments": [
+            {
+                "date": "2026-09-30",
+                "movements": [
+                    { "direction": "IN", "quantity": "40.5" },
+                    { "direction": "OUT", "quantity": "12" }
+                ]
+            }
+        ]
+    }
+}

@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "la-liquid: transform sample",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/source/Liquid.Cli/bin/Debug/net10.0/la-liquid.dll",
+      "args": [
+        "transform",
+        "--map", "${workspaceFolder}/samples/maps/orders.to.shipment.request.liquid",
+        "--input", "${workspaceFolder}/samples/inputs/orders.json",
+        "--output", "${workspaceFolder}/samples/output/orders.to.shipment.request.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": "la-liquid: validate samples folder",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/source/Liquid.Cli/bin/Debug/net10.0/la-liquid.dll",
+      "args": ["validate", "--map", "${workspaceFolder}/samples/maps"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    }
+  ]
+}

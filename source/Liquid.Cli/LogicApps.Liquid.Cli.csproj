@@ -1,0 +1,45 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AnalysisLevel>latest-all</AnalysisLevel>
+    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+    <WarningLevel>9999</WarningLevel>
+    <AssemblyName>la-liquid</AssemblyName>
+    <RootNamespace>LogicApps.Liquid.Cli</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>la-liquid</ToolCommandName>
+    <PackageId>LogicApps.Liquid.Cli</PackageId>
+    <Authors>Sahin Ozdemir</Authors>
+    <Description>Command line tool that validates Liquid maps and runs them exactly like the Azure Logic Apps Standard Liquid action. Runs locally and in Azure DevOps pipelines.</Description>
+    <PackageTags>logicapps;azure;integration;liquid;dotliquid;cli;devops</PackageTags>
+    <PackageProjectUrl>https://github.com/sahinozd/LogicAppsStandard.Liquid</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/sahinozd/LogicAppsStandard.Liquid</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.13" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Liquid\LogicApps.Liquid.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LogicApps.Liquid.Tests" />
+  </ItemGroup>
+
+</Project>

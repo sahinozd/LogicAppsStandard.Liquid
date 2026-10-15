@@ -1,0 +1,6 @@
+{
+  "dotnet.defaultSolution": "LogicAppsStandard.Liquid.slnx",
+  "files.associations": {
+    "**/pipelines/**/*.yml": "azure-pipelines"
+  }
+}

@@ -1,0 +1,25 @@
+<Solution>
+  <Folder Name="/Solution items/">
+    <File Path=".gitignore" />
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+    <File Path="THIRD_PARTY_NOTICES.md" />
+    <File Path="docs/assessment.md" />
+    <File Path="docs/runtime-behaviour.md" />
+  </Folder>
+  <Folder Name="/Pipelines/">
+    <File Path="pipelines/azure-pipelines.yml" />
+    <File Path="pipelines/templates/steps/validate-liquid-maps.yml" />
+  </Folder>
+  <Folder Name="/Samples/">
+    <File Path="samples/liquid-tests.json" />
+  </Folder>
+  <Folder Name="/Unit tests/">
+    <Project Path="tests/Liquid.Tests/LogicApps.Liquid.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Conformance tests/">
+    <Project Path="tests/Liquid.ConformanceTests/LogicApps.Liquid.ConformanceTests.csproj" />
+  </Folder>
+  <Project Path="source/Liquid/LogicApps.Liquid.csproj" />
+  <Project Path="source/Liquid.Cli/LogicApps.Liquid.Cli.csproj" />
+</Solution>

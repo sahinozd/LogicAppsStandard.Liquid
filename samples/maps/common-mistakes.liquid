@@ -1,0 +1,10 @@
+{%- comment -%}
+    Every line below is accepted by Shopify Liquid, but behaves differently in Logic Apps.
+    Run: la-liquid validate --map samples/maps/common-mistakes.liquid --input samples/inputs/common-mistakes.json
+{%- endcomment -%}
+{
+    "name": "{{ content.name | upcase }}",
+    "city": "{{ content.address.city | strip_html }}",
+    "hasEmail": {% if content.email == nil %}false{% else %}true{% endif %},
+    "country": "{{ country }}"
+}

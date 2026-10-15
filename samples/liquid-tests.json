@@ -1,0 +1,30 @@
+{
+  "culture": "en-US",
+  "tests": [
+    {
+      "name": "Orders to shipment request (JsonToJson, JSONArrayFor)",
+      "map": "maps/orders.to.shipment.request.liquid",
+      "input": "inputs/orders.json",
+      "expectedOutput": "expected/orders.to.shipment.request.json"
+    },
+    {
+      "name": "Webshop export to warehouse XML (JsonToText, multiple inputs)",
+      "map": "maps/webshop.to.warehouse.xml.liquid",
+      "input": "inputs/webshop.json",
+      "kind": "JsonToText",
+      "expectedOutput": "expected/webshop.to.warehouse.xml.xml"
+    },
+    {
+      "name": "Orders XML to JSON (XmlToJson, namespaces ignored)",
+      "map": "maps/orders.xml.to.json.liquid",
+      "input": "inputs/orders.xml",
+      "expectedOutput": "expected/orders.xml.to.json.json"
+    },
+    {
+      "name": "Common mistakes are detected",
+      "map": "maps/common-mistakes.liquid",
+      "input": "inputs/common-mistakes.json",
+      "expectedDiagnostics": [ "LQ010", "LQ020", "LQ021" ]
+    }
+  ]
+}

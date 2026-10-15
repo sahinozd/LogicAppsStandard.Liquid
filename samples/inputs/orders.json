@@ -1,0 +1,9 @@
+{
+    "requestId": "REQ-0001",
+    "order": {
+        "lines": [
+            { "sku": "abc-100", "shipDate": "2026-10-03", "weight": "12.50", "carrier": "EXPRESS" },
+            { "sku": "abc-200", "shipDate": "2026-10-11", "weight": 3.2, "carrier": null }
+        ]
+    }
+}

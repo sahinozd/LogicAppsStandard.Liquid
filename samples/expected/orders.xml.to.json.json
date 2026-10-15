@@ -1,0 +1,13 @@
+{
+  "customer": "Contoso",
+  "orders": [
+    {
+      "id": "A-1",
+      "total": 10.5
+    },
+    {
+      "id": "A-2",
+      "total": 7
+    }
+  ]
+}

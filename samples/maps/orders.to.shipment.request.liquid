@@ -1,0 +1,18 @@
+{%- comment -%}
+    JsonToJson. The workflow passes the order wrapped in an object: { "order": <payload>, "requestId": "..." }, so the map reads content.order.
+    JSONArrayFor writes the commas between array items, so no forloop.last logic is needed.
+{%- endcomment -%}
+{%- assign order = content.order -%}
+{
+    "requestId": "{{ content.requestId }}",
+    "packages": [
+        {%- JSONArrayFor line in order.lines -%}
+        {
+            "sku": "{{ line.sku | Upcase }}",
+            "shipDate": "{{ line.shipDate | Date: "yyyyMMdd" }}",
+            "weightKg": {{ line.weight | Times: 1.0 }},
+            "carrier": "{{ line.carrier | Default: "STANDARD" }}"
+        }
+        {%- endJSONArrayFor -%}
+    ]
+}

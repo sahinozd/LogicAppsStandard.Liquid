@@ -1,0 +1,29 @@
+{%- comment -%}
+    JsonToText: builds an XML message for a warehouse system.
+    Several inputs are combined into one content object by the workflow: the message, a lookup table and a reference.
+    Liquid cannot parse a text value to a number: multiplying with 1.0 (not 1) does it.
+{%- endcomment -%}
+{%- assign message = content.message -%}
+{%- assign warehouseCode = "" -%}
+{%- for entry in content.warehouses -%}
+    {%- if entry.country == message.shipTo.country -%}
+        {%- assign warehouseCode = entry.code -%}
+    {%- endif -%}
+{%- endfor -%}
+<Envelope xmlns="http://example.org/warehouse">
+   <Body>
+      <Shipments reference="{{ content.reference }}">
+         <Warehouse>{{ warehouseCode }}</Warehouse>
+         {%- for shipment in message.shipments %}
+         <Shipment>
+            <Sequence>{{ forloop.index }}</Sequence>
+            <Month>{{ shipment.date | Date: "yyyyMM" }}</Month>
+            {%- for movement in shipment.movements %}
+            {%- if movement.direction == "OUT" -%}{%- assign sign = -1.0 -%}{%- else -%}{%- assign sign = 1.0 -%}{%- endif %}
+            <Quantity>{{ movement.quantity | Times: sign }}</Quantity>
+            {%- endfor %}
+         </Shipment>
+         {%- endfor %}
+      </Shipments>
+   </Body>
+</Envelope>
