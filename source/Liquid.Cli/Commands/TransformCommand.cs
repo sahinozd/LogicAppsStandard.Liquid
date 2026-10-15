@@ -17,6 +17,8 @@ namespace LogicApps.Liquid.Cli.Commands;
 /// </summary>
 internal static class TransformCommand
 {
+    private const string Operation = "Transform";
+
     private static readonly UTF8Encoding _utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
     public static Command Create()
@@ -31,12 +33,14 @@ internal static class TransformCommand
         var kind = CommonOptions.Kind();
         var warningsAsErrors = CommonOptions.WarningsAsErrors();
         var engine = new EngineOptionSet();
+        var outputOptions = new OutputOptionSet();
 
         var command = new Command("transform", "Validate a Liquid map, run it with an input message and write the output.")
         {
             map, input, output, raw, kind, warningsAsErrors,
         };
         engine.AddTo(command);
+        outputOptions.AddTo(command);
 
         command.SetAction(parseResult => Run(
             parseResult.GetValue(map)!,
@@ -45,12 +49,13 @@ internal static class TransformCommand
             parseResult.GetValue(raw),
             parseResult.GetValue(kind),
             parseResult.GetValue(warningsAsErrors),
-            engine.Read(parseResult)));
+            engine.Read(parseResult),
+            outputOptions.Read(parseResult)));
 
         return command;
     }
 
-    private static int Run(string mapPath, string inputPath, string outputPath, bool raw, LiquidTransformKind? kind, bool warningsAsErrors, EngineSettings settings)
+    private static int Run(string mapPath, string inputPath, string outputPath, bool raw, LiquidTransformKind? kind, bool warningsAsErrors, EngineSettings settings, OutputSettings outputSettings)
     {
         var transformer = CommonOptions.CreateTransformer(settings);
         var map = CommonOptions.ReadFile(mapPath, "map");
@@ -61,16 +66,22 @@ internal static class TransformCommand
         }
 
         var resolvedKind = KindResolver.Resolve(kind, inputPath, outputPath);
-        Console.WriteLine($"Kind: {resolvedKind}{(kind is null ? " (inferred)" : string.Empty)}");
-
         var result = transformer.Transform(map, input, resolvedKind);
-        new DiagnosticReporter(Console.Out).Report(result.Diagnostics, new DiagnosticContext(mapPath, inputPath, outputPath, result.RenderedText), warningsAsErrors);
+        var reporter = ReportWriterFactory.Create(outputSettings);
 
-        var errors = result.Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
-        var warnings = result.Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Warning);
+        // The rendered output has not been written yet, so output findings refer to the map's rendered output.
+        var context = new DiagnosticContext(mapPath, inputPath, null, result.RenderedText)
+        {
+            MapText = map,
+            InputText = input,
+            Kind = resolvedKind,
+            KindInferred = kind is null,
+        };
+        reporter.WriteDiagnostics(result.Diagnostics, context, warningsAsErrors);
+
         if (result.HasFailures(warningsAsErrors) || result.RenderedText is null)
         {
-            Console.WriteLine($"Transform failed: {errors} error(s), {warnings} warning(s). No output written.");
+            reporter.WriteSummary(new RunSummary { Operation = Operation, Succeeded = false, Diagnostics = result.Diagnostics, Note = "No output written." });
             return ExitCodes.Failed;
         }
 
@@ -90,7 +101,7 @@ internal static class TransformCommand
             return ExitCodes.UsageError;
         }
 
-        Console.WriteLine($"Transform succeeded: {warnings} warning(s). Output written to '{outputPath}'.");
+        reporter.WriteSummary(new RunSummary { Operation = Operation, Succeeded = true, Diagnostics = result.Diagnostics, Note = $"Output written to '{outputPath}'." });
         return ExitCodes.Success;
     }
 

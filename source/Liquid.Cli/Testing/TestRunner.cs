@@ -22,7 +22,6 @@ internal sealed class TestRunner
     private static readonly UTF8Encoding _utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
     private readonly ILiquidTransformer _transformer;
-    private readonly DiagnosticReporter _reporter;
     private readonly string _baseDirectory;
     private readonly bool _warningsAsErrors;
     private readonly bool _updateExpected;
@@ -31,14 +30,12 @@ internal sealed class TestRunner
     /// Creates a test runner.
     /// </summary>
     /// <param name="transformer">The transformer that runs the maps.</param>
-    /// <param name="reporter">Writes the diagnostics of each test.</param>
     /// <param name="baseDirectory">The folder the paths in the test cases are relative to.</param>
     /// <param name="warningsAsErrors">Treat warnings as failures.</param>
     /// <param name="updateExpected">Write actual outputs to the expected output files instead of comparing.</param>
-    public TestRunner(ILiquidTransformer transformer, DiagnosticReporter reporter, string baseDirectory, bool warningsAsErrors, bool updateExpected)
+    public TestRunner(ILiquidTransformer transformer, string baseDirectory, bool warningsAsErrors, bool updateExpected)
     {
         _transformer = transformer ?? throw new ArgumentNullException(nameof(transformer));
-        _reporter = reporter ?? throw new ArgumentNullException(nameof(reporter));
         _baseDirectory = baseDirectory ?? throw new ArgumentNullException(nameof(baseDirectory));
         _warningsAsErrors = warningsAsErrors;
         _updateExpected = updateExpected;
@@ -48,15 +45,15 @@ internal sealed class TestRunner
     /// Runs one test case.
     /// </summary>
     /// <param name="test">The test case.</param>
-    /// <returns>The outcome.</returns>
-    public TestCaseResult Run(TestCaseDefinition test)
+    /// <returns>The outcome, and the findings of the transform with the files they refer to.</returns>
+    public (TestCaseResult Result, IReadOnlyList<Diagnostic> Diagnostics, DiagnosticContext? Context) Run(TestCaseDefinition test)
     {
         ArgumentNullException.ThrowIfNull(test);
 
         var stopwatch = Stopwatch.StartNew();
-        var mapPath = Path.Combine(_baseDirectory, test.Map);
-        var inputPath = Path.Combine(_baseDirectory, test.Input);
-        var expectedPath = test.ExpectedOutput is null ? null : Path.Combine(_baseDirectory, test.ExpectedOutput);
+        var mapPath = Path.GetFullPath(Path.Combine(_baseDirectory, test.Map));
+        var inputPath = Path.GetFullPath(Path.Combine(_baseDirectory, test.Input));
+        var expectedPath = test.ExpectedOutput is null ? null : Path.GetFullPath(Path.Combine(_baseDirectory, test.ExpectedOutput));
         var name = test.Name ?? Path.GetFileNameWithoutExtension(test.Map);
         var failures = new List<string>();
 
@@ -70,12 +67,12 @@ internal sealed class TestRunner
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             failures.Add($"Cannot read test files: {ex.Message}");
-            return new TestCaseResult(name, mapPath, failures, stopwatch.Elapsed);
+            return (new TestCaseResult(name, mapPath, failures, stopwatch.Elapsed), [], null);
         }
 
         var kind = KindResolver.Resolve(test.Kind, inputPath, expectedPath);
         var result = _transformer.Transform(map, input, kind);
-        _reporter.Report(result.Diagnostics, new DiagnosticContext(mapPath, inputPath, expectedPath, result.RenderedText), _warningsAsErrors);
+        var context = new DiagnosticContext(mapPath, inputPath, null, result.RenderedText) { MapText = map, InputText = input, Kind = kind };
 
         CheckDiagnostics(test, result, failures);
 
@@ -84,7 +81,7 @@ internal sealed class TestRunner
             CompareOutput(result, expectedPath, failures);
         }
 
-        return new TestCaseResult(name, mapPath, failures, stopwatch.Elapsed);
+        return (new TestCaseResult(name, mapPath, failures, stopwatch.Elapsed), result.Diagnostics, context);
     }
 
     private void CheckDiagnostics(TestCaseDefinition test, LiquidTransformResult result, List<string> failures)
@@ -99,7 +96,7 @@ internal sealed class TestRunner
         {
             if (diagnostic.Severity == DiagnosticSeverity.Error || (_warningsAsErrors && diagnostic.Severity == DiagnosticSeverity.Warning))
             {
-                failures.Add($"{diagnostic.Code}: {diagnostic.Message}");
+                failures.Add($"{diagnostic.Code}: {diagnostic.Title}{(diagnostic.Line is null ? string.Empty : $" (line {diagnostic.Line})")}");
             }
         }
     }

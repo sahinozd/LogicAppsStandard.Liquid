@@ -178,11 +178,80 @@ public sealed class LiquidTransformerTests
     public void Transform_Should_Write_Error_Into_Output_And_Report_It_When_Rendering_Fails()
     {
         // Act
+        var result = new LiquidTransformer().Transform("{{ 'abc' | Truncate: 'short' }}", "{}", LiquidTransformKind.JsonToText);
+
+        // Assert
+        Assert.That(result.RenderedText, Does.Contain("Liquid error"));
+        var diagnostic = result.Diagnostics.Single(d => d.Code == DiagnosticCodes.RenderError);
+        Assert.That((diagnostic.Source, diagnostic.Line), Is.EqualTo((DiagnosticSource.Output, 1)));
+        Assert.That(diagnostic.Fix, Is.Not.Null, "a hint for the unhelpful engine message");
+    }
+
+    [Test]
+    public void Transform_Should_Report_Render_Error_At_Filter_Call_When_Cause_Is_Known()
+    {
+        // Act
+        var result = new LiquidTransformer().Transform("Line 1\n{{ content.year | Minus: 1 }}", """{"year":"2026"}""", LiquidTransformKind.JsonToText);
+
+        // Assert
+        Assert.That(result.Diagnostics.Select(d => d.Code), Does.Not.Contain(DiagnosticCodes.RenderError));
+        var diagnostic = result.Diagnostics.Single(d => d.Code == DiagnosticCodes.MathOnText);
+        Assert.Multiple(() =>
+        {
+            Assert.That(diagnostic.Severity, Is.EqualTo(DiagnosticSeverity.Error));
+            Assert.That((diagnostic.Source, diagnostic.Line), Is.EqualTo((DiagnosticSource.Map, 2)));
+            Assert.That(diagnostic.OutputLine, Is.EqualTo(2));
+            Assert.That(diagnostic.Explanation, Does.Contain("Parameter count mismatch"));
+        });
+    }
+
+    [Test]
+    public void Transform_Should_Report_Include_Once_When_Map_Uses_Include()
+    {
+        // Act
         var result = new LiquidTransformer().Transform("{% include 'x' %}", "{}", LiquidTransformKind.JsonToText);
 
         // Assert
         Assert.That(result.RenderedText, Does.Contain("Liquid error"));
-        Assert.That(result.Diagnostics.Select(d => d.Code), Does.Contain(DiagnosticCodes.RenderError));
+        Assert.That(result.Diagnostics.Select(d => d.Code), Is.EqualTo(new[] { DiagnosticCodes.IncludeNotSupported }));
+        Assert.That(result.Diagnostics[0].OutputLine, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Transform_Should_Report_Missing_Value_At_Path_When_Path_Has_Special_Character()
+    {
+        // Act
+        var result = new LiquidTransformer().Transform("{{ content.item.@code }}", """{"item":{"@code":"A"}}""", LiquidTransformKind.JsonToText);
+
+        // Assert
+        Assert.That(result.Diagnostics.Select(d => d.Code), Does.Not.Contain(DiagnosticCodes.MissingValue));
+        Assert.That(result.Diagnostics.Single(d => d.Code == DiagnosticCodes.SpecialCharacterInPath).Values, Does.Contain("was not found"));
+    }
+
+    [Test]
+    public void Validate_Should_Report_Parse_Error_At_Location_When_Static_Checks_Find_It()
+    {
+        // Act
+        var diagnostics = new LiquidTransformer().Validate("Order\n{% for line in content.lines %}x");
+
+        // Assert
+        var diagnostic = diagnostics.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(diagnostic.Code, Is.EqualTo(DiagnosticCodes.UnbalancedBlock));
+            Assert.That(diagnostic.Line, Is.EqualTo(2));
+            Assert.That(diagnostic.Values, Does.Contain("Logic Apps reports"));
+        });
+    }
+
+    [Test]
+    public void Validate_Should_Report_Parse_Error_When_Static_Checks_Are_Off()
+    {
+        // Act
+        var diagnostics = new LiquidTransformer(new LiquidTransformOptions { Lint = false }).Validate("{% for line in content.lines %}x");
+
+        // Assert
+        Assert.That(diagnostics.Single().Code, Is.EqualTo(DiagnosticCodes.TemplateSyntaxError));
     }
 
     [Test]
@@ -193,7 +262,9 @@ public sealed class LiquidTransformerTests
 
         // Assert
         Assert.That(result.Succeeded, Is.True);
-        Assert.That(result.Diagnostics.Single().Code, Is.EqualTo(DiagnosticCodes.MissingValue));
+        var diagnostic = result.Diagnostics.Single();
+        Assert.That(diagnostic.Code, Is.EqualTo(DiagnosticCodes.MissingValue));
+        Assert.That((diagnostic.Line, diagnostic.Column), Is.EqualTo((1, 10)), "located at the first use in the map");
     }
 
     [Test]

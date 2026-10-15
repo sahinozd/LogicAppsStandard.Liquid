@@ -25,7 +25,7 @@ public sealed class DeviationDetector : IDeviationDetector
     private static readonly Regex _stringPattern = new(@"""[^""]*""|'[^']*'");
     private static readonly Regex _filterNamePattern = new(@"\|\s*(?<name>\w+)");
 
-    private const int MaxReportsPerLocation = 3;
+    private const int MaxValuesPerLocation = 3;
 
     private static readonly Dictionary<string, MethodInfo> _observedFilters = typeof(ObservingFilters)
         .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
@@ -176,20 +176,23 @@ public sealed class DeviationDetector : IDeviationDetector
     private static List<Diagnostic> ToDiagnostics(IReadOnlyList<FilterObservation> observations)
     {
         var diagnostics = new List<Diagnostic>();
-        foreach (var group in observations.GroupBy(o => (o.Code, o.Line, o.Column)))
+        foreach (var group in observations.GroupBy(o => (o.Code, o.Title, o.Line, o.Column)))
         {
-            // A filter in a loop is called many times: report a few distinct values per location.
-            var messages = group.Select(o => o.Message).Distinct(StringComparer.Ordinal).ToList();
-            for (var i = 0; i < Math.Min(messages.Count, MaxReportsPerLocation); i++)
+            // A filter in a loop is called many times: one finding per location, with a few distinct values.
+            var first = group.First();
+            var values = group.Select(o => o.Values).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
+            var shown = string.Join("; ", values.Take(MaxValuesPerLocation));
+            if (values.Count > MaxValuesPerLocation)
             {
-                var message = messages[i];
-                if (i == MaxReportsPerLocation - 1 && messages.Count > MaxReportsPerLocation)
-                {
-                    message += $" ({messages.Count - MaxReportsPerLocation} more value(s) with the same problem.)";
-                }
-
-                diagnostics.Add(new Diagnostic(group.Key.Code, DiagnosticSeverity.Warning, message, DiagnosticSource.Map, group.Key.Line, group.Key.Column));
+                shown += $"; {values.Count - MaxValuesPerLocation} more value(s)";
             }
+
+            diagnostics.Add(new Diagnostic(group.Key.Code, DiagnosticSeverity.Warning, group.Key.Title, DiagnosticSource.Map, group.Key.Line, group.Key.Column)
+            {
+                Values = values.Count == 0 ? null : shown,
+                Explanation = first.Explanation,
+                Fix = first.Fix,
+            });
         }
 
         return diagnostics;

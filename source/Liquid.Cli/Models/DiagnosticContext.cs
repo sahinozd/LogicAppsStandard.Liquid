@@ -1,7 +1,9 @@
+using LogicApps.Liquid.Enums;
+
 namespace LogicApps.Liquid.Cli.Models;
 
 /// <summary>
-/// The files a set of diagnostics refers to, used to print clickable locations.
+/// The files a set of diagnostics refers to, used to print clickable locations and source excerpts.
 /// </summary>
 internal sealed record DiagnosticContext
 {
@@ -31,4 +33,16 @@ internal sealed record DiagnosticContext
 
     /// <summary>The rendered output, used to show the offending line for output errors.</summary>
     public string? RenderedText { get; }
+
+    /// <summary>The text of the map, used to show the offending line.</summary>
+    public string? MapText { get; init; }
+
+    /// <summary>The text of the input, used to show the offending line.</summary>
+    public string? InputText { get; init; }
+
+    /// <summary>The transform kind, when the map was rendered.</summary>
+    public LiquidTransformKind? Kind { get; init; }
+
+    /// <summary>True when the kind was inferred from the file extensions.</summary>
+    public bool KindInferred { get; init; }
 }

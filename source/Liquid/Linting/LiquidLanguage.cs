@@ -79,7 +79,9 @@ public static class LiquidLanguage
     /// <returns>True for block tags such as <c>if</c>, <c>for</c> and <c>JSONArrayFor</c>.</returns>
     public static bool IsBlockTag(string name)
     {
-        return _tags.Value.TryGetValue(name, out var type) && type.IsSubclassOf(typeof(Block));
+        // Include and Extends derive from Block, but override parsing and have no end tag.
+        return _tags.Value.TryGetValue(name, out var type) && type.IsSubclassOf(typeof(Block))
+            && !typeof(DotLiquid.Tags.Include).IsAssignableFrom(type) && !typeof(DotLiquid.Tags.Extends).IsAssignableFrom(type);
     }
 
     /// <summary>

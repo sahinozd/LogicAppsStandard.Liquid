@@ -15,6 +15,8 @@ namespace LogicApps.Liquid.Cli.Commands;
 /// </summary>
 internal static class ValidateCommand
 {
+    private const string Operation = "Validation";
+
     public static Command Create()
     {
         var map = new Option<string>("--map", "-m")
@@ -29,24 +31,27 @@ internal static class ValidateCommand
         var kind = CommonOptions.Kind();
         var warningsAsErrors = CommonOptions.WarningsAsErrors();
         var engine = new EngineOptionSet();
+        var output = new OutputOptionSet();
 
         var command = new Command("validate", "Validate Liquid maps against the Logic Apps Liquid engine.")
         {
             map, input, kind, warningsAsErrors,
         };
         engine.AddTo(command);
+        output.AddTo(command);
 
         command.SetAction(parseResult => Run(
             parseResult.GetValue(map)!,
             parseResult.GetValue(input),
             parseResult.GetValue(kind),
             parseResult.GetValue(warningsAsErrors),
-            engine.Read(parseResult)));
+            engine.Read(parseResult),
+            output.Read(parseResult)));
 
         return command;
     }
 
-    private static int Run(string mapPath, string? inputPath, LiquidTransformKind? kind, bool warningsAsErrors, EngineSettings settings)
+    private static int Run(string mapPath, string? inputPath, LiquidTransformKind? kind, bool warningsAsErrors, EngineSettings settings, OutputSettings outputSettings)
     {
         var transformer = CommonOptions.CreateTransformer(settings);
         if (transformer is null)
@@ -54,7 +59,7 @@ internal static class ValidateCommand
             return ExitCodes.UsageError;
         }
 
-        var reporter = new DiagnosticReporter(Console.Out);
+        var reporter = ReportWriterFactory.Create(outputSettings);
 
         if (Directory.Exists(mapPath))
         {
@@ -76,8 +81,8 @@ internal static class ValidateCommand
         if (inputPath is null)
         {
             var diagnostics = transformer.Validate(map);
-            reporter.Report(diagnostics, new DiagnosticContext(mapPath), warningsAsErrors);
-            return Summarize(diagnostics, 1, warningsAsErrors);
+            reporter.WriteDiagnostics(diagnostics, new DiagnosticContext(mapPath) { MapText = map }, warningsAsErrors);
+            return Summarize(reporter, diagnostics, 1, warningsAsErrors);
         }
 
         var input = CommonOptions.ReadFile(inputPath, "input");
@@ -87,13 +92,19 @@ internal static class ValidateCommand
         }
 
         var resolvedKind = KindResolver.Resolve(kind, inputPath, null);
-        Console.WriteLine($"Kind: {resolvedKind}{(kind is null ? " (inferred)" : string.Empty)}");
         var result = transformer.Transform(map, input, resolvedKind);
-        reporter.Report(result.Diagnostics, new DiagnosticContext(mapPath, inputPath, null, result.RenderedText), warningsAsErrors);
-        return Summarize(result.Diagnostics, 1, warningsAsErrors);
+        var context = new DiagnosticContext(mapPath, inputPath, null, result.RenderedText)
+        {
+            MapText = map,
+            InputText = input,
+            Kind = resolvedKind,
+            KindInferred = kind is null,
+        };
+        reporter.WriteDiagnostics(result.Diagnostics, context, warningsAsErrors);
+        return Summarize(reporter, result.Diagnostics, 1, warningsAsErrors);
     }
 
-    private static int ValidateFolder(ILiquidTransformer transformer, DiagnosticReporter reporter, string folder, bool warningsAsErrors)
+    private static int ValidateFolder(ILiquidTransformer transformer, IReportWriter reporter, string folder, bool warningsAsErrors)
     {
         var maps = Directory.GetFiles(folder, "*.liquid", SearchOption.AllDirectories).Order(StringComparer.OrdinalIgnoreCase).ToList();
         if (maps.Count == 0)
@@ -112,19 +123,23 @@ internal static class ValidateCommand
             }
 
             var diagnostics = transformer.Validate(map);
-            reporter.Report(diagnostics, new DiagnosticContext(mapPath), warningsAsErrors);
+            reporter.WriteDiagnostics(diagnostics, new DiagnosticContext(mapPath) { MapText = map }, warningsAsErrors);
             all.AddRange(diagnostics);
         }
 
-        return Summarize(all, maps.Count, warningsAsErrors);
+        return Summarize(reporter, all, maps.Count, warningsAsErrors);
     }
 
-    private static int Summarize(IReadOnlyCollection<Diagnostic> diagnostics, int mapCount, bool warningsAsErrors)
+    private static int Summarize(IReportWriter reporter, IReadOnlyList<Diagnostic> diagnostics, int mapCount, bool warningsAsErrors)
     {
-        var errors = diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
-        var warnings = diagnostics.Count(d => d.Severity == DiagnosticSeverity.Warning);
-        var failed = errors > 0 || (warningsAsErrors && warnings > 0);
-        Console.WriteLine($"{(failed ? "Validation failed" : "Validation succeeded")}: {mapCount} map(s), {errors} error(s), {warnings} warning(s).");
+        var failed = diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error || (warningsAsErrors && d.Severity == DiagnosticSeverity.Warning));
+        reporter.WriteSummary(new RunSummary
+        {
+            Operation = Operation,
+            Succeeded = !failed,
+            Diagnostics = diagnostics,
+            MapCount = mapCount,
+        });
         return failed ? ExitCodes.Failed : ExitCodes.Success;
     }
 }

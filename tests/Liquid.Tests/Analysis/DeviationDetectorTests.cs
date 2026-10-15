@@ -70,7 +70,8 @@ public sealed class DeviationDetectorTests
         // Assert
         var deviation = result.Diagnostics.FirstOrDefault(d => d.Code == code);
         Assert.That(deviation, Is.Not.Null, string.Join(Environment.NewLine, result.Diagnostics));
-        Assert.That(deviation!.Severity, Is.EqualTo(DiagnosticSeverity.Warning));
+        // A deviation that writes 'Liquid error' into the output is merged with that render error and becomes an error.
+        Assert.That(deviation!.Severity, Is.EqualTo(deviation.OutputLine is null ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error));
         Assert.That(deviation.Line, Is.EqualTo(1));
         if (output is not null)
         {
