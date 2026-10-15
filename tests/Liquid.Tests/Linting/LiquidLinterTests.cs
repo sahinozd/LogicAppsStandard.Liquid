@@ -220,6 +220,16 @@ public sealed class LiquidLinterTests
     }
 
     [Test]
+    public void Lint_Should_Not_Report_Undefined_Variable_When_Path_Segment_Has_Special_Character()
+    {
+        // Act
+        var diagnostics = _linter.Lint("{{ content.totals.@currency }}");
+
+        // Assert
+        Assert.That(diagnostics.Select(d => d.Code), Is.EqualTo(new[] { DiagnosticCodes.SpecialCharacterInPath }));
+    }
+
+    [Test]
     public void Lint_Should_Not_Report_Special_Character_When_Brackets_Are_Used()
     {
         // Act

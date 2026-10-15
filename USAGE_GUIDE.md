@@ -256,7 +256,7 @@ All three commands accept these options:
 | `--culture` | `en-US` | DotLiquid reads decimal literals and text, and formats numbers and dates, with this culture. Keep `en-US` to match Azure. Use another culture only to see what a map does on such a host. |
 | `--time-zone` | `UTC` | Dates with a time zone are converted to this zone, and `now` uses it. Logic Apps in Azure runs in UTC, **unless** the app setting `WEBSITE_TIME_ZONE` is set: then use that value, for example `--time-zone "W. Europe Standard Time"`. Windows and IANA names both work. `local` uses your machine's time zone. |
 | `--no-lint` | off | Skip the static checks: you only see what the Logic Apps engine itself reports. |
-| `--no-deviations` | off | Skip the deviation checks (LQ100–LQ127). These render the map a second time to observe the actual filter values; the output is not affected. |
+| `--no-deviations` | off | Skip the deviation checks (LQ100–LQ128). These render the map a second time to observe the actual filter values; the output is not affected. |
 | `--warnings-as-errors` | off | Warnings fail the command. A good setting for new maps in a pipeline. |
 
 Why this matters: on a Dutch laptop, DotLiquid computes `{{ 1.5 | Times: 2 }}` as `30` and shifts dates by one or two hours. The defaults make your local result equal to Azure.

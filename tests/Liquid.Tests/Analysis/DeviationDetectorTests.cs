@@ -163,6 +163,22 @@ public sealed class DeviationDetectorTests
         Assert.That(result.Diagnostics, Is.Empty);
     }
 
+    [TestCase("Sort: 'Weight'")]
+    [TestCase("Compact")]
+    [TestCase("Uniq")]
+    public void Detect_Should_Report_Flattening_When_Filter_Gets_Xml_Elements(string filter)
+    {
+        // Arrange
+        var transformer = new LiquidTransformer(new LiquidTransformOptions { Lint = false });
+        const string xml = "<Root><Packages><Package><Weight>12.5</Weight></Package><Package><Weight>3</Weight></Package></Packages></Root>";
+
+        // Act
+        var result = transformer.Transform($"{{% assign p = content.Root.Packages | {filter} %}}{{{{ p.size }}}}", xml, LiquidTransformKind.XmlToText);
+
+        // Assert
+        Assert.That(result.Diagnostics.Select(d => d.Code), Does.Contain(DiagnosticCodes.XmlElementsFlattened));
+    }
+
     [Test]
     public void Detect_Should_Report_Removed_Duplicates_When_Uniq_Drops_Values()
     {

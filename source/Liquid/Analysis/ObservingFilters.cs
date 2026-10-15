@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using DotLiquid;
 using LogicApps.Liquid.Constants;
 using LogicApps.Liquid.Models;
+using LogicApps.Liquid.Runtime;
 
 namespace LogicApps.Liquid.Analysis;
 
@@ -297,6 +298,11 @@ internal sealed class ObservingFilters
             return result;
         }
 
+        if (ReportXmlFlattening(nameof(Sort), input))
+        {
+            return result;
+        }
+
         var original = items.Cast<object?>().ToList();
         var sorted = result.Cast<object?>().ToList();
         if (!string.IsNullOrEmpty(property))
@@ -308,7 +314,7 @@ internal sealed class ObservingFilters
                 if (!expected.SequenceEqual(sorted))
                 {
                     Report(DiagnosticCodes.SortDiffers,
-                        $"Sort: {Show(property)} does not sort JSON or XML input: the items keep their original order. Shopify Liquid sorts them by '{property}'. Sort by building the order yourself, for example with a for loop per value.");
+                        $"Sort: {Show(property)} does not sort JSON input: the items keep their original order. Shopify Liquid sorts them by '{property}'. Sort by building the order yourself, for example with a for loop per value.");
                 }
             }
         }
@@ -389,9 +395,20 @@ internal sealed class ObservingFilters
         return input;
     }
 
+    public IEnumerable? Compact(object? input)
+    {
+        ReportXmlFlattening(nameof(Compact), input);
+        return StandardFilters.Compact(input);
+    }
+
     public IEnumerable? Uniq(object? input)
     {
         var result = StandardFilters.Uniq(input);
+        if (ReportXmlFlattening(nameof(Uniq), input))
+        {
+            return result;
+        }
+
         if (input is IEnumerable items && input is not string && result is not null)
         {
             var original = items.Cast<object?>().ToList();
@@ -511,6 +528,27 @@ internal sealed class ObservingFilters
     private void Report(string code, string message)
     {
         FilterObserver.Report(new FilterObservation(code, message, _line, _column));
+    }
+
+    // Sort, Compact and Uniq flatten nested lists. XML elements are lists of their child elements, so a list of elements
+    // becomes a list of all their child values: the elements themselves are lost.
+    private bool ReportXmlFlattening(string filterName, object? input)
+    {
+        var containsElements = input switch
+        {
+            XmlInputDrop drop => drop.Cast<object?>().Any(child => child is XmlInputDrop),
+            IEnumerable items and not string => items.Cast<object?>().Any(item => item is XmlInputDrop),
+            _ => false,
+        };
+        if (!containsElements)
+        {
+            return false;
+        }
+
+        Report(DiagnosticCodes.XmlElementsFlattened,
+            $"{filterName} on XML elements flattens them into all of their child values, so the elements themselves are lost ('item.Name' no longer works). " +
+            $"Loop over the elements directly; to order them, loop once per value. Shopify Liquid keeps the elements.");
+        return true;
     }
 
     private void ReportNilInput(string filterName, string? input, string? value)
