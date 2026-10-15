@@ -71,6 +71,12 @@ internal static class ShopifyReference
             return input.Length;
         }
 
+        // Ruby's split(" ") is special: it splits on runs of whitespace and ignores leading whitespace.
+        if (separator == " ")
+        {
+            return input.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+        }
+
         var parts = input.Split(separator, StringSplitOptions.None).ToList();
         while (parts.Count > 0 && parts[^1].Length == 0)
         {
@@ -78,6 +84,36 @@ internal static class ShopifyReference
         }
 
         return parts.Count;
+    }
+
+    /// <summary>Shopify's blank: nil, false, empty or whitespace-only text, and empty lists and objects.</summary>
+    public static bool IsBlank(object? value)
+    {
+        return value switch
+        {
+            null => true,
+            bool flag => !flag,
+            string text => string.IsNullOrWhiteSpace(text),
+            _ => IsEmpty(value),
+        };
+    }
+
+    /// <summary>Shopify's empty: empty text, and empty lists and objects.</summary>
+    public static bool IsEmpty(object? value)
+    {
+        return value switch
+        {
+            string text => text.Length == 0,
+            System.Collections.IEnumerable items => !items.Cast<object?>().Any(),
+            DotLiquid.IIndexable indexable => IsEmptyObject(indexable),
+            _ => false,
+        };
+    }
+
+    // The JSON object wrapper doesn't list its keys; Runtime.JsonInputDrop tells whether it has any.
+    private static bool IsEmptyObject(DotLiquid.IIndexable value)
+    {
+        return value is Runtime.JsonInputDrop drop && drop.IsEmptyObject;
     }
 
     /// <summary>Ruby gsub with a string pattern replaces literal text.</summary>

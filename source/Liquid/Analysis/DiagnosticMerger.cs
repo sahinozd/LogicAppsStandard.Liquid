@@ -24,6 +24,7 @@ internal static class DiagnosticMerger
         ("Parameter count mismatch", DiagnosticCodes.MathOnText),
         ("(Parameter 'count')", DiagnosticCodes.TimesRepeatsText),
         ("does not allow includes", DiagnosticCodes.IncludeNotSupported),
+        ("target of an invocation", DiagnosticCodes.WholeNumberOverflow),
     ];
 
     /// <summary>
@@ -49,10 +50,19 @@ internal static class DiagnosticMerger
         for (var i = 0; i < diagnostics.Count; i++)
         {
             var variable = diagnostics[i].Code == DiagnosticCodes.MissingValue && diagnostics[i].Line is null ? MissingVariable(diagnostics[i]) : null;
-            var index = variable is null ? -1 : map.IndexOf(variable, StringComparison.Ordinal);
-            if (index >= 0)
+            if (variable is null)
             {
-                var (line, column) = position.At(index);
+                continue;
+            }
+
+            // The whole name, inside a tag or output: 's' must not match the s of 'items'.
+            var use = LiquidTokenizer.Tokenize(map)
+                .Where(t => t.Kind != LiquidTokenKind.Text)
+                .Select(t => (Token: t, Match: Regex.Match(t.Raw, $@"(?<![\w.\[@$#-]){Regex.Escape(variable)}(?![\w-])")))
+                .FirstOrDefault(found => found.Match.Success);
+            if (use.Token is not null)
+            {
+                var (line, column) = position.At(use.Token.Offset + use.Match.Index);
                 diagnostics[i] = diagnostics[i] with { Line = line, Column = column };
             }
         }
@@ -85,7 +95,12 @@ internal static class DiagnosticMerger
             var renderErrors = diagnostics
                 .Where(d => d.Code == DiagnosticCodes.RenderError && d.Source == DiagnosticSource.Output && d.Values?.Contains(errorText, StringComparison.Ordinal) == true)
                 .ToList();
-            var causes = diagnostics.Where(d => d.Code == code && d.Source == DiagnosticSource.Map).OrderBy(d => d.Line).ThenBy(d => d.Column).ToList();
+            // A cause observed with values only qualifies when its values show that it wrote 'Liquid error'.
+            var causes = diagnostics
+                .Where(d => d.Code == code && d.Source == DiagnosticSource.Map && (d.Values is null || d.Values.Contains("'Liquid error'", StringComparison.Ordinal)))
+                .OrderBy(d => d.Line)
+                .ThenBy(d => d.Column)
+                .ToList();
             if (renderErrors.Count == 0 || causes.Count == 0)
             {
                 continue;
@@ -137,10 +152,11 @@ internal static class DiagnosticMerger
         }
     }
 
+    // The title is "'<variable>' was not found in the input" or "'<variable>' has no value".
     private static string? MissingVariable(Diagnostic diagnostic)
     {
         var title = diagnostic.Title;
-        var end = title.IndexOf("' was not found", StringComparison.Ordinal);
+        var end = title.LastIndexOf('\'');
         return title.StartsWith('\'') && end > 0 ? title[1..end] : null;
     }
 }

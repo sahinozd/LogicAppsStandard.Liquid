@@ -26,6 +26,7 @@ internal sealed class PrettyReportWriter : IReportWriter
         [DiagnosticCategory.Syntax] = "syntax & tags",
         [DiagnosticCategory.Filters] = "filters",
         [DiagnosticCategory.ValuesAndPaths] = "values & paths",
+        [DiagnosticCategory.Conditions] = "conditions & loops",
         [DiagnosticCategory.Input] = "input",
         [DiagnosticCategory.Output] = "output",
         [DiagnosticCategory.ShopifyDeviation] = "differs from Shopify",

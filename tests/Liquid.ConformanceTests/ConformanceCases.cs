@@ -9,6 +9,7 @@ public static class ConformanceCases
 {
     private const string Person = """{"name":"sahin","n":3,"s":"4","f":1.10,"big":12345678901234567890,"b":true,"nul":null,"d":"2026-10-15T10:00:00Z","arr":[1,2,3],"items":[{"id":"a","v":2},{"id":"b","v":1}],"words":["banana","Apple","apple"],"ml":"a\nb"}""";
     private const string Patterns = """{"attr":{"@code":"D","code":"WRONG"},"env":{"$content":"B64","content":"WRONG"},"x":{"#text":"T","text":"WRONG","ns0:Bal":"NS"},"one":{"id":"A"},"dups":["x","x","y"],"arr":[1,2,3],"num":"123","t":"it's","q":"say \"hi\" \\ end"}""";
+    private const string Research = """{"words":["a","b"],"nums":[1,2],"s":"15","dec":"2.5","big":3000000000,"cents":25000000,"flag":true,"no":false,"z":null,"w":"  ","o":{},"obj":{"a":1,"b":2},"arr":[],"mixed":[3,1.5,2],"ts":1700000000,"tags":["urgent"]}""";
     private const string Orders ="""<n:Orders xmlns:n="urn:x"><n:Customer>Contoso</n:Customer><n:Order><n:Id>A</n:Id></n:Order><n:Order><n:Id>B</n:Id></n:Order></n:Orders>""";
 
     /// <summary>
@@ -95,6 +96,37 @@ public static class ConformanceCases
         yield return new ConformanceCase("XML lookup: namespaces and case ignored, first match", "{{ content.orders.customer }}|{{ content.Orders.Order.Id }}", Orders, LiquidTransformKind.XmlToText);
         yield return new ConformanceCase("XML JSONArrayFor where", "[{% JSONArrayFor o in content.Orders where Order %}\"{{ o.Id }}\"{% endJSONArrayFor %}]", Orders, LiquidTransformKind.XmlToJson);
         yield return new ConformanceCase("XML for loop", "{% for o in content.Orders %}[{{ o.Id }}]{% endfor %}", Orders, LiquidTransformKind.XmlToText);
+
+        // Found by comparing Logic Apps with online reports and with Shopify Liquid (October 2026).
+        yield return Text("Research: forloop properties are lowercase", "{% for x in content.arr %}[{{ forloop.Last }}|{{ forloop.last }}|{{ forloop.Index }}|{{ forloop.index }}]{% endfor %}");
+        yield return new ConformanceCase("Research: Microsoft docs sample with forloop.Last",
+            "{%- assign deviceList = content.devices | Split: ', ' -%}\n{\n\"devices\" : [\n{%- for device in deviceList -%}\n{%- if forloop.Last == true -%}\n\"{{device}}\"\n{%- else -%}\n\"{{device}}\",\n{%- endif -%}\n{%- endfor -%}\n]\n}",
+            """{"devices": "Surface, Mobile, Desktop computer"}""", LiquidTransformKind.JsonToJson);
+        yield return ResearchText("Research: whole numbers above Int32 overflow", "[{{ content.big | Plus: 1 }}]|[{{ content.big | Minus: 1 }}]|[{{ content.big | DividedBy: 2 }}]|[{{ content.big | Modulo: 7 }}]|[{{ content.cents | Times: 100 }}]|[{{ content.big | Plus: 1.0 }}]|[{{ content.cents | Times: 100.0 }}]");
+        yield return ResearchText("Research: contains on a list of text", "[{% if content.words contains 'a' %}1{% endif %}{% assign w = 'a,b' | Split: ',' %}{% if w contains 'a' %}2{% endif %}{% if content.nums contains 2 %}3{% endif %}{% if 'abc' contains 'b' %}4{% endif %}]");
+        yield return ResearchText("Research: text compared with a number", "[{% if content.s > 10 %}a{% endif %}{% if content.s > 9 %}b{% endif %}{% if content.s < 100 %}c{% endif %}{% if content.s == 15 %}d{% endif %}{% if content.dec > 2 %}e{% endif %}{% if '100' > '20' %}f{% endif %}]");
+        yield return ResearchText("Research: blank and empty", "missing[{% if content.m == blank %}b{% endif %}]null[{% if content.z == blank %}b{% endif %}]ws[{% if content.w == blank %}b{% endif %}]obj[{% if content.o == empty %}e{% endif %}]arr[{% if content.arr == empty %}e{% endif %}]false[{% if content.no == blank %}b{% endif %}]");
+        yield return ResearchText("Research: else with a condition is a plain else", "[{% if content.s == '1' %}one{% else if content.s == '9' %}nine{% endif %}]|[{% if content.s == '1' %}one{% elsif content.s == '9' %}nine{% endif %}]");
+        yield return ResearchText("Research: parentheses and filters in conditions", "[{% if (content.s == '15' or content.s == '16') and content.no %}yes{% else %}no{% endif %}]|[{% if content.s | Size > 5 %}a{% endif %}]");
+        yield return ResearchText("Research: comparison in assign", "{% assign y = content.s > 3 %}[{{ y }}]{% assign w = true and false %}[{{ w }}]");
+        yield return ResearchText("Research: booleans printed and through text filters", "[{{ content.flag }}]|[{{ content.flag | Default: false }}]|[{{ content.flag | Append: '' }}]|[{{ content.no | Upcase }}]");
+        yield return new ConformanceCase("Research: boolean through a text filter breaks JSON", "{\"a\": {{ content.flag | Default: false }}}", Research, LiquidTransformKind.JsonToJson);
+        yield return new ConformanceCase("Research: unquoted null gives undefined", "{\"x\": {{ content.z }}, \"y\": 1}", Research, LiquidTransformKind.JsonToJson);
+        yield return ResearchText("Research: Date on numbers", "[{{ content.ts | Date: 'yyyy' }}]|[{{ 1700000000 | Date: 'yyyy' }}]");
+        yield return ResearchText("Research: Size of an object", "[{{ content.obj | Size }}]|[{{ content.obj.size }}]|[{{ content.nums.size }}]|[{{ content.nums.Size }}]");
+        yield return ResearchText("Research: text filters on lists and objects fail", "[{{ content.arr | Default: 'x' }}]|[{{ content.obj | Default: 'x' }}]|[{{ content.words | Slice: 0, 1 }}]");
+        yield return new ConformanceCase("Research: text filter on an XML element fails", "[{{ content.Orders | Upcase }}]", Orders, LiquidTransformKind.XmlToText);
+        yield return ResearchText("Research: Sort with whole and decimal numbers fails", "[{% assign s = content.mixed | Sort %}{{ s | Join: ',' }}]");
+        yield return ResearchText("Research: list indexes", "[{{ content.words[0] }}]|[{{ content.words.0 }}]|[{{ content.words[5] }}]|[{{ content.words[-1] }}]");
+        yield return ResearchText("Research: a single brace ends an output", "[{{ content.x | Default: '{}' }}]");
+        yield return new ConformanceCase("Research: JSONArrayFor has no forloop", "[{% JSONArrayFor x in content.nums %}{\"i\": {{ forloop.index }}}{% endJSONArrayFor %}]", Research, LiquidTransformKind.JsonToJson);
+        yield return ResearchText("Research: Replace with dollar signs in the replacement", "[{{ 'a' | Replace: 'a', '$$' }}]|[{{ 'a' | Replace: 'a', '$0$0' }}]|[{{ 'EUR' | Replace: 'EUR', '$' }}]");
+        yield return ResearchText("Research: Split on a space", "[{{ ' a b  c ' | Split: ' ' | Size }}]|[{{ 'a,,b,' | Split: ',' | Size }}]");
+    }
+
+    private static ConformanceCase ResearchText(string name, string map)
+    {
+        return new ConformanceCase(name, map, Research, LiquidTransformKind.JsonToText);
     }
 
     private static IEnumerable<ConformanceCase> Samples()

@@ -94,9 +94,15 @@ public static class LiquidLanguage
         ArgumentNullException.ThrowIfNull(name);
 
         var lower = name.ToLowerInvariant();
-        if (IsTag(lower))
+        if (IsTag(lower) || IntermediateTags.Contains(lower))
         {
             return lower;
+        }
+
+        // Python and other languages: elif, else_if.
+        if (lower is "elif" or "else_if" or "elseif")
+        {
+            return "elsif";
         }
 
         return name.Equals(RuntimeConstants.JsonArrayForTagName, StringComparison.OrdinalIgnoreCase)

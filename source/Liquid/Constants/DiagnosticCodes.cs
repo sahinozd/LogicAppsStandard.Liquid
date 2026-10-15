@@ -17,6 +17,9 @@ public static class DiagnosticCodes
     /// <summary>A Liquid tag or output that is never closed (<c>{{</c> without <c>}}</c>).</summary>
     public const string UnterminatedTag = "LQ004";
 
+    /// <summary>A single <c>}</c> inside <c>{{ }}</c>, also inside quotes, ends the output for DotLiquid, so the map fails to parse.</summary>
+    public const string BraceInOutput = "LQ005";
+
     /// <summary>A filter written in snake_case or lowercase (<c>upcase</c>) instead of C# naming (<c>Upcase</c>). Logic Apps silently skips it.</summary>
     public const string FilterCasing = "LQ010";
 
@@ -65,8 +68,29 @@ public static class DiagnosticCodes
     /// <summary>An empty search text in <c>Replace</c> or <c>Remove</c>, often a doubled quote (<c>''''</c>) meant as an escaped quote: it does nothing.</summary>
     public const string EmptySearchText = "LQ028";
 
+    /// <summary>A <c>forloop</c> property with the wrong casing (<c>forloop.Last</c>) or that does not exist: it is always empty.</summary>
+    public const string ForloopProperty = "LQ029";
+
     /// <summary>The JSON output contains <c>undefined</c> array items, typically from stray commas.</summary>
     public const string UndefinedInOutput = "LQ043";
+
+    /// <summary><c>{% else if x %}</c> or <c>{% else x %}</c>: the text after <c>else</c> is ignored, so it is a plain <c>else</c>.</summary>
+    public const string ElseWithCondition = "LQ050";
+
+    /// <summary>Parentheses in a condition: Liquid has none, and DotLiquid evaluates the condition differently than intended.</summary>
+    public const string ParenthesesInCondition = "LQ051";
+
+    /// <summary>A filter in a condition is ignored: the condition only checks whether the value is set.</summary>
+    public const string FilterInCondition = "LQ052";
+
+    /// <summary><c>forloop</c> inside <c>JSONArrayFor</c>: that tag has no <c>forloop</c>, so it is always empty.</summary>
+    public const string ForloopInJsonArrayFor = "LQ053";
+
+    /// <summary>A comparison or <c>and</c>/<c>or</c> in <c>assign</c> is not evaluated: the variable gets the first value.</summary>
+    public const string ComparisonInAssign = "LQ054";
+
+    /// <summary>Two texts that contain numbers are compared with <c>&lt;</c> or <c>&gt;</c>: they are compared as text, so '100' &lt; '20'.</summary>
+    public const string NumbersComparedAsText = "LQ055";
 
     // LQ1xx: DotLiquid behaves differently from Shopify Liquid. Most are detected while rendering, with the actual values.
 
@@ -153,4 +177,19 @@ public static class DiagnosticCodes
 
     /// <summary><c>Sort</c>, <c>Compact</c> or <c>Uniq</c> on XML elements flattens them into all of their child values: the elements are lost.</summary>
     public const string XmlElementsFlattened = "LQ128";
+
+    /// <summary>Math filters calculate whole numbers as 32-bit integers: values or results above 2,147,483,647 wrap around or fail.</summary>
+    public const string WholeNumberOverflow = "LQ129";
+
+    /// <summary><c>contains</c> on a list of text is always false.</summary>
+    public const string ContainsOnTextList = "LQ130";
+
+    /// <summary>Text is compared with a number: DotLiquid compares as text or converts, Shopify Liquid fails or returns false.</summary>
+    public const string TextComparedWithNumber = "LQ131";
+
+    /// <summary><c>blank</c> and <c>empty</c> give another result than in Shopify Liquid: for a missing value, whitespace or an empty object.</summary>
+    public const string BlankOrEmptyDiffers = "LQ132";
+
+    /// <summary>A true/false value becomes the text 'True'/'False' in a text filter; printed directly it is 'true'/'false'.</summary>
+    public const string BooleanAsText = "LQ133";
 }

@@ -245,6 +245,85 @@ public sealed class LiquidTransformerTests
     }
 
     [Test]
+    public void Transform_Should_Report_Every_Deviation_When_Several_Are_On_One_Line()
+    {
+        // Act
+        var result = new LiquidTransformer().Transform("{{ content.y | Minus: 1 }}|{{ content.y | Modulo: 2 }}", """{"y":"2026"}""", LiquidTransformKind.JsonToText);
+
+        // Assert
+        Assert.That(result.Diagnostics.Count(d => d.Code == DiagnosticCodes.MathOnText), Is.EqualTo(2));
+    }
+
+    [TestCase("[{{ content.o | Default: 'x' }}]", """{"o":{"a":1}}""", LiquidTransformKind.JsonToText, "Microsoft.Azure.Function.Common.JObjectDrop")]
+    [TestCase("[{{ content.Root | Upcase }}]", "<Root><A>1</A></Root>", LiquidTransformKind.XmlToText, "Microsoft.Azure.Function.Common.XElementDrop")]
+    public void Transform_Should_Write_Runtime_Type_Names_When_Error_Names_An_Input_Value(string map, string input, LiquidTransformKind kind, string typeName)
+    {
+        // Act
+        var result = new LiquidTransformer(new LiquidTransformOptions { Lint = false }).Transform(map, input, kind);
+
+        // Assert
+        Assert.That(result.RenderedText, Does.Contain(typeName));
+        Assert.That(result.Diagnostics.Single(d => d.Code == DiagnosticCodes.RenderError).Values, Does.Contain(typeName));
+    }
+
+    [Test]
+    public void Transform_Should_Report_Empty_Value_When_Unquoted_Output_Is_Null()
+    {
+        // Act
+        var result = new LiquidTransformer().Transform("{\"x\": {{ content.z }}, \"y\": 1}", """{"z":null}""", LiquidTransformKind.JsonToJson);
+
+        // Assert
+        var diagnostic = result.Diagnostics.Single(d => d.Code == DiagnosticCodes.UndefinedInOutput);
+        Assert.That(diagnostic.Title, Is.EqualTo("The output contains an empty value"));
+    }
+
+    [Test]
+    public void Transform_Should_Explain_Invalid_Json_When_Boolean_Went_Through_Text_Filter()
+    {
+        // Act
+        var result = new LiquidTransformer().Transform("{\"a\": {{ content.flag | Default: false }}}", """{"flag":true}""", LiquidTransformKind.JsonToJson);
+
+        // Assert
+        Assert.That(result.Diagnostics.Single(d => d.Code == DiagnosticCodes.InvalidJsonOutput).Explanation, Does.Contain("'True'"));
+        Assert.That(result.Diagnostics.Select(d => d.Code), Does.Contain(DiagnosticCodes.BooleanAsText));
+    }
+
+    [Test]
+    public void Transform_Should_Report_Overflow_As_Error_At_Times_When_It_Writes_Liquid_Error()
+    {
+        // Act
+        var result = new LiquidTransformer().Transform("{{ content.big | Plus: 1 }}\n{{ content.cents | Times: 100 }}", """{"big":3000000000,"cents":25000000}""", LiquidTransformKind.JsonToText);
+
+        // Assert
+        var overflows = result.Diagnostics.Where(d => d.Code == DiagnosticCodes.WholeNumberOverflow).OrderBy(d => d.Line).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(overflows, Has.Count.EqualTo(2));
+            Assert.That(overflows[0].Severity, Is.EqualTo(DiagnosticSeverity.Warning), "Plus wraps around without an error");
+            Assert.That(overflows[1].Severity, Is.EqualTo(DiagnosticSeverity.Error), "Times writes 'Liquid error'");
+            Assert.That(result.Diagnostics.Select(d => d.Code), Does.Not.Contain(DiagnosticCodes.RenderError));
+        });
+    }
+
+    [TestCase("{% assign s = content.list | Sort %}{{ s }}", "'s' has no value", "assigned")]
+    [TestCase("{{ content.list.0 }}", "'content.list.0' was not found in the input", "[0]")]
+    [TestCase("{{ content.list.Size }}", "'content.list.Size' was not found in the input", "'.size'")]
+    public void Transform_Should_Explain_Missing_Value_When_Path_Has_A_Known_Mistake(string map, string title, string fix)
+    {
+        // Act
+        var result = new LiquidTransformer(new LiquidTransformOptions { Lint = false }).Transform(map, """{"list":[3,1.5]}""", LiquidTransformKind.JsonToText);
+
+        // Assert
+        var diagnostic = result.Diagnostics.Single(d => d.Code == DiagnosticCodes.MissingValue);
+        Assert.Multiple(() =>
+        {
+            Assert.That(diagnostic.Title, Is.EqualTo(title));
+            Assert.That(diagnostic.Fix, Does.Contain(fix));
+            Assert.That(diagnostic.Line, Is.EqualTo(1), "located in the map");
+        });
+    }
+
+    [Test]
     public void Validate_Should_Report_Parse_Error_When_Static_Checks_Are_Off()
     {
         // Act

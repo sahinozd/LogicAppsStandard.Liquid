@@ -16,7 +16,7 @@ namespace LogicApps.Liquid.Tests.Analysis;
 [TestFixture]
 public sealed class DeviationDetectorTests
 {
-    private const string Input = """{"year":"2026","amount":"125,50","flag":false,"blank":"  ","items":[{"n":3},{"n":1},{"n":2}],"words":["banana","Apple","apple"],"stamp":"2026-10-15T23:30:00Z","local":"03/04/2026"}""";
+    private const string Input = """{"big":3000000000,"obj":{"a":1},"empty":{},"year":"2026","amount":"125,50","flag":false,"blank":"  ","items":[{"n":3},{"n":1},{"n":2}],"words":["banana","Apple","apple"],"stamp":"2026-10-15T23:30:00Z","local":"03/04/2026"}""";
 
     private static IEnumerable<TestCaseData> Deviations()
     {
@@ -48,6 +48,32 @@ public sealed class DeviationDetectorTests
         yield return Case("{{ 'now' | Date: 'yyyy' }}", DiagnosticCodes.DateNow, null);
         yield return Case("{{ 'abc' | Abs }}", DiagnosticCodes.NumberFilterOnText, "0");
         yield return Case("{{ 12345 | Size }}", DiagnosticCodes.SizeOfNumber, "0");
+        yield return Case("{{ content.obj | Size }}", DiagnosticCodes.SizeOfNumber, "0");
+        yield return Case("{{ 1700000000 | Date: 'yyyy' }}", DiagnosticCodes.DateNotParsed, "1700000000");
+        yield return Case("{{ content.big | Plus: 1 }}", DiagnosticCodes.WholeNumberOverflow, "-1294967295");
+        yield return Case("{{ content.big | Modulo: 7 }}", DiagnosticCodes.WholeNumberOverflow, null);
+        yield return Case("{% assign w = 'a,b' | Split: ',' %}[{% if w contains 'a' %}y{% endif %}]", DiagnosticCodes.ContainsOnTextList, "[]");
+        yield return Case("{% if content.year > 999 %}y{% else %}n{% endif %}", DiagnosticCodes.TextComparedWithNumber, "n");
+        yield return Case("{% if '100' > '20' %}y{% else %}n{% endif %}", DiagnosticCodes.NumbersComparedAsText, "n");
+        yield return Case("{% if content.missing == blank %}y{% else %}n{% endif %}", DiagnosticCodes.BlankOrEmptyDiffers, "n");
+        yield return Case("{% if content.blank != blank %}y{% else %}n{% endif %}", DiagnosticCodes.BlankOrEmptyDiffers, "y");
+        yield return Case("{% unless content.empty == empty %}y{% endunless %}", DiagnosticCodes.BlankOrEmptyDiffers, "y");
+        yield return Case("{{ content.flag | Append: '' }}", DiagnosticCodes.BooleanAsText, "False");
+    }
+
+    [TestCase("{{ ' a b  c ' | Split: ' ' | Size }}")]
+    [TestCase("{% if content.year > 1000 %}y{% endif %}")]
+    [TestCase("{% if content.year == '2026' and content.flag == false %}y{% endif %}")]
+    [TestCase("{% if content.words contains 'x' %}y{% else %}n{% endif %}")]
+    [TestCase("{% if content.amount == blank %}y{% else %}n{% endif %}")]
+    [TestCase("{{ 2147483646 | Plus: 1 }}")]
+    public void Detect_Should_Not_Report_Deviation_When_Result_Is_As_In_Shopify_Liquid(string map)
+    {
+        // Act
+        var result = Transform(map);
+
+        // Assert
+        Assert.That(result.Diagnostics, Is.Empty, string.Join(Environment.NewLine, result.Diagnostics));
     }
 
     private static TestCaseData Case(string map, string code, string? output)

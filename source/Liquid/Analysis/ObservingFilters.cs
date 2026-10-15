@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Globalization;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using DotLiquid;
 using LogicApps.Liquid.Constants;
@@ -37,6 +38,11 @@ internal sealed class ObservingFilters
     }
     public object? Plus(object? input, object? operand)
     {
+        if (TryObserveOverflow(nameof(Plus), input, operand, () => StandardFilters.Plus(input, operand), (a, b) => a + b, out var overflowed))
+        {
+            return overflowed;
+        }
+
         if (input is string text)
         {
             var sum = IsNumber(operand)
@@ -58,12 +64,22 @@ internal sealed class ObservingFilters
 
     public object? Minus(object? input, object? operand)
     {
+        if (TryObserveOverflow(nameof(Minus), input, operand, () => StandardFilters.Minus(input, operand), (a, b) => a - b, out var overflowed))
+        {
+            return overflowed;
+        }
+
         InspectMath(nameof(Minus), input, operand);
         return RememberTrailingZeros(nameof(Minus), StandardFilters.Minus(input, operand));
     }
 
     public object? Times(object? input, object? operand)
     {
+        if (TryObserveOverflow(nameof(Times), input, operand, () => StandardFilters.Times(input, operand), (a, b) => a * b, out var overflowed))
+        {
+            return overflowed;
+        }
+
         if (input is string text && operand is int or long)
         {
             var count = Convert.ToInt64(operand, CultureInfo.InvariantCulture);
@@ -88,6 +104,12 @@ internal sealed class ObservingFilters
 
     public object? DividedBy(object? input, object? operand)
     {
+        // Integer division truncates (LQ108 reports where that differs from Shopify); only the overflow is checked here.
+        if (TryObserveOverflow(nameof(DividedBy), input, operand, () => StandardFilters.DividedBy(input, operand), (a, b) => decimal.Truncate(a / b), out var overflowed))
+        {
+            return overflowed;
+        }
+
         InspectMath(nameof(DividedBy), input, operand);
         var result = StandardFilters.DividedBy(input, operand);
 
@@ -117,6 +139,11 @@ internal sealed class ObservingFilters
 
     public object? Modulo(object? input, object? operand)
     {
+        if (TryObserveOverflow(nameof(Modulo), input, operand, () => StandardFilters.Modulo(input, operand), (a, b) => a % b, out var overflowed))
+        {
+            return overflowed;
+        }
+
         InspectMath(nameof(Modulo), input, operand);
         var result = StandardFilters.Modulo(input, operand);
 
@@ -189,6 +216,7 @@ internal sealed class ObservingFilters
 
     public string? Default(string? input, string? defaultValue)
     {
+        ReportBooleanAsText(nameof(Default), input);
         if (!string.IsNullOrEmpty(input) && string.IsNullOrWhiteSpace(input))
         {
             Report(DiagnosticCodes.DefaultDiffers, "Default treats whitespace as empty",
@@ -253,6 +281,7 @@ internal sealed class ObservingFilters
 
     public string? Append(string? input, string? @string)
     {
+        ReportBooleanAsText(nameof(Append), input);
         ReportNilInput(nameof(Append), input, @string);
         ReportTrailingZerosReachText(nameof(Append), input);
         ReportTrailingZerosReachText(nameof(Append), @string);
@@ -261,6 +290,7 @@ internal sealed class ObservingFilters
 
     public string? Prepend(string? input, string? @string)
     {
+        ReportBooleanAsText(nameof(Prepend), input);
         ReportNilInput(nameof(Prepend), input, @string);
         ReportTrailingZerosReachText(nameof(Prepend), input);
         ReportTrailingZerosReachText(nameof(Prepend), @string);
@@ -362,6 +392,14 @@ internal sealed class ObservingFilters
 
     public string? Date(object? input, string? format)
     {
+        if (IsNumber(input) && !string.IsNullOrWhiteSpace(format))
+        {
+            Report(DiagnosticCodes.DateNotParsed, "Date does not read a number as a timestamp",
+                $"{Show(input)} | Date: {Show(format)} → '{StandardFilters.Date(input, format)}' (Shopify Liquid reads it as a Unix timestamp)",
+                "DotLiquid reads a number as text: a whole number is returned unchanged, and a decimal such as 1.5 can even become a date in the current year.",
+                "Convert the timestamp in the workflow, for example with addSeconds('1970-01-01', ...), and pass the date as text.");
+        }
+
         if (format is not null && format.Contains('%', StringComparison.Ordinal))
         {
             Report(DiagnosticCodes.DateStrftimeFormat, "Date uses a Ruby strftime format",
@@ -474,6 +512,13 @@ internal sealed class ObservingFilters
                 null,
                 "Use Size on text or lists only.");
         }
+        else if (input is IIndexable and not IEnumerable)
+        {
+            Report(DiagnosticCodes.SizeOfNumber, "Size of an object returns 0",
+                "object | Size → 0 (Shopify Liquid: the number of properties)",
+                "DotLiquid only counts text and lists; '.size' on an object is empty as well.",
+                "Use Size on text or lists only.");
+        }
 
         return StandardFilters.Size(input);
     }
@@ -574,6 +619,70 @@ internal sealed class ObservingFilters
             "Use '| Round' (or '| Round: n') before passing it on.");
     }
 
+    // Math filters calculate whole numbers as 32-bit integers. Compare with the exact result, and report a wrong result or a failure.
+    private bool TryObserveOverflow(string filterName, object? input, object? operand, Func<object?> calculate, Func<decimal, decimal, decimal> exact, out object? result)
+    {
+        result = null;
+        if (!IsWholeNumber(input) || !IsWholeNumber(operand))
+        {
+            return false;
+        }
+
+        var left = Convert.ToDecimal(input, CultureInfo.InvariantCulture);
+        var right = Convert.ToDecimal(operand, CultureInfo.InvariantCulture);
+        decimal expected;
+        try
+        {
+            expected = exact(left, right);
+        }
+        catch (DivideByZeroException)
+        {
+            return false;
+        }
+
+        if (Math.Abs(left) <= int.MaxValue && Math.Abs(right) <= int.MaxValue && Math.Abs(expected) <= int.MaxValue)
+        {
+            return false;
+        }
+
+        var call = $"{Show(input)} | {filterName}: {Show(operand)}";
+        const string Explanation = "DotLiquid calculates whole numbers as 32-bit integers, so a value or result above 2,147,483,647 wraps around or fails. " +
+            "IDs, amounts in cents and timestamps in milliseconds easily get that large.";
+        var fix = $"Use a decimal operand, for example '| {filterName}: {right.ToString(CultureInfo.InvariantCulture)}.0'. Output shows no decimals for a whole result.";
+        try
+        {
+            result = calculate();
+        }
+        catch (Exception ex) when (ex is OverflowException or TargetInvocationException or InvalidOperationException)
+        {
+            Report(DiagnosticCodes.WholeNumberOverflow, "Large whole numbers overflow in math filters",
+                $"{call} → 'Liquid error' (Shopify Liquid: {expected.ToString(CultureInfo.InvariantCulture)})", Explanation, fix);
+            throw;
+        }
+
+        if (result is null || Convert.ToDecimal(result, CultureInfo.InvariantCulture) == expected)
+        {
+            return false;
+        }
+
+        Report(DiagnosticCodes.WholeNumberOverflow, "Large whole numbers overflow in math filters",
+            $"{call} → {Show(result)} (Shopify Liquid: {expected.ToString(CultureInfo.InvariantCulture)})", Explanation, fix);
+        return true;
+    }
+
+    // A text filter receives a true/false value as 'True'/'False'. Only for JSON input: XML has no booleans, so 'True' there is real text.
+    private void ReportBooleanAsText(string filterName, string? input)
+    {
+        if (FilterObserver.JsonInput && input is "True" or "False")
+        {
+            var json = input == "True" ? "true" : "false";
+            Report(DiagnosticCodes.BooleanAsText, "A true/false value becomes 'True'/'False' in a text filter",
+                $"{json} | {filterName} → '{input}…' (Shopify Liquid: '{json}…')",
+                "Printed directly, a JSON boolean is 'true' or 'false', but text filters get the .NET text 'True' or 'False'. In JSON output that is invalid.",
+                "Print the value directly, or add '| Downcase'.");
+        }
+    }
+
     private void Report(string code, string title, string? values, string? explanation, string? fix)
     {
         FilterObserver.Report(new FilterObservation(code, title, _line, _column) { Values = values, Explanation = explanation, Fix = fix });
@@ -639,8 +748,8 @@ internal sealed class ObservingFilters
         {
             Report(DiagnosticCodes.ReplaceIsRegex, $"{filterName} uses the search text as a regular expression",
                 $"{Show(input)} | {filterName}: {Show(search)}{(replacement is null ? string.Empty : ", " + Show(replacement))} → '{result}' (Shopify Liquid: '{expected}')",
-                "Shopify Liquid replaces literal text.",
-                "Escape special characters, for example '\\.' for a dot.");
+                "Shopify Liquid replaces literal text. In the replacement, '$0', '$$', '$_' and similar are substitutions too.",
+                "Escape special characters in the search text, for example '\\.' for a dot. In the replacement, write '$$' for a '$' that is followed by 0-9, $, _, & or a quote.");
         }
 
         return result;
@@ -678,7 +787,7 @@ internal sealed class ObservingFilters
         return IsDecimal(value) || IsWholeNumber(value);
     }
 
-    private static string Show(object? value)
+    internal static string Show(object? value)
     {
         return value switch
         {

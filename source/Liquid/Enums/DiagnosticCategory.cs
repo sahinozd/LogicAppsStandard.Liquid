@@ -8,6 +8,7 @@ public enum DiagnosticCategory
     Syntax,
     Filters,
     ValuesAndPaths,
+    Conditions,
     Input,
     Output,
     ShopifyDeviation

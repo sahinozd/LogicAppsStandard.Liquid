@@ -23,6 +23,9 @@ public static class RuntimeConstants
     /// <summary>The type name of the runtime's JSON wrapper, which is what an object prints inside a rendered array.</summary>
     public const string JsonDropTypeName = "Microsoft.Azure.Function.Common.JObjectDrop";
 
+    /// <summary>The type name of the runtime's XML wrapper, as it appears in render error messages.</summary>
+    public const string XmlDropTypeName = "Microsoft.Azure.Function.Common.XElementDrop";
+
     /// <summary>The time zone of the Logic Apps host in Azure, unless the app setting <c>WEBSITE_TIME_ZONE</c> is set.</summary>
     public const string DefaultTimeZoneId = "UTC";
 

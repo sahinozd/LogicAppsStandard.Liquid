@@ -553,6 +553,8 @@ Transforms run one at a time per process, because DotLiquid's configuration is p
 | `Liquid error: ...` in the output | Logic Apps doesn't fail on render errors; it writes them into the output. The finding at the filter call (for example LQ102), or LQ040 with the output line, says which error. |
 | A value is empty in the output | Look for LQ023 (not in the input), LQ025 (special character in the path), LQ127 (an object printed) and LQ010/LQ011 (filter skipped). |
 | A loop renders nothing | LQ126: the value is a single object, typically XML with one element converted to JSON. Wrap it with `\| Compact`. |
+| An if takes the wrong branch | Look for LQ131/LQ055 (numbers in text compared as text, typical for XML input), LQ130 (`contains` on a list of text), LQ132 (`blank`/`empty`), LQ050 (`else if`), LQ051/LQ052 (parentheses or a filter in the condition) and LQ029 (`forloop.Last`). |
+| A large number is negative or wrong | LQ129: math filters calculate whole numbers as 32-bit integers. Use a decimal operand, for example `\| Times: 100.0`. |
 | `JsonToJson` output is `null` | The map rendered nothing (LQ042). Logic Apps doesn't fail on this. |
 | An XML file is reported as invalid | Logic Apps reads the message as UTF-8 bytes, and so does the tool: a UTF-16 file, or `encoding="utf-16"` on UTF-8 content, is rejected. |
 | `?` instead of `✖`, or codes like `[31m` | The console doesn't understand UTF-8 or colors. Use `--no-color`, or `--format msbuild`. |

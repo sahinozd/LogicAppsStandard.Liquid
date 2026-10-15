@@ -14,11 +14,25 @@ internal static class FilterObserver
     [ThreadStatic]
     private static Dictionary<string, (string Rendered, string FilterName)>? _decimalsWithTrailingZeros;
 
+    [ThreadStatic]
+    private static bool _jsonInput;
+
+    /// <summary>True when the input of the current render is JSON (XML input has no numbers or booleans, only text).</summary>
+    public static bool JsonInput
+    {
+        get
+        {
+            return _jsonInput;
+        }
+    }
+
     /// <summary>
     /// Starts collecting observations on the current thread.
     /// </summary>
-    public static void Start()
+    /// <param name="jsonInput">True when the input is JSON.</param>
+    public static void Start(bool jsonInput)
     {
+        _jsonInput = jsonInput;
         _observations = [];
         _decimalsWithTrailingZeros = new Dictionary<string, (string Rendered, string FilterName)>(StringComparer.Ordinal);
     }

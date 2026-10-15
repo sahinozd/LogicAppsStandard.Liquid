@@ -15,6 +15,7 @@ Every finding has a code. `la-liquid explain <code>` shows the same information 
 | LQ002 | error | Unknown tag, for example `{% If %}` (tags are case-sensitive) or Shopify's `render` |
 | LQ003 | error | Block never closed, or an end tag that doesn't match |
 | LQ004 | error | `{{` or `{%` never closed, or spread over several lines |
+| LQ005 | error | A `}` inside `{{ }}`, also inside quotes (`{{ x \| Default: '{}' }}`): ends the output, so the map fails to parse |
 
 ### Filters
 
@@ -36,6 +37,18 @@ Every finding has a code. `la-liquid explain <code>` shows the same information 
 | LQ024 | warning | `{% if content.x %}` without comparison: true for JSON `null` |
 | LQ025 | warning | `.@code`, `.$content`, `.#text` or `.ns0:x` in a dot path: another property is read |
 | LQ026 | warning | `if`/`unless`/`case` inside `JSONArrayFor`: skipped items become `undefined` |
+| LQ029 | error | `forloop.Last`, `forloop.Index`: forloop properties are lowercase, so these are always empty |
+
+### Conditions and loops
+
+| Code | Severity | What |
+|---|---|---|
+| LQ050 | error | `{% else if x %}`: the text after `else` is ignored, so it is a plain `else` |
+| LQ051 | error | Parentheses in a condition: Liquid has none, and the condition is evaluated differently |
+| LQ052 | error | A filter in a condition (`{% if x \| Size > 5 %}`) is ignored: only checks whether x is set |
+| LQ053 | error | `forloop` inside `JSONArrayFor`: that tag has no forloop |
+| LQ054 | error | A comparison or `and`/`or` in `assign` is not evaluated: the variable gets the first value |
+| LQ055 | warning | Two texts with numbers are compared as text: `'100' < '20'`. Values from XML are always text. Found while rendering |
 
 ### Input and output
 
@@ -45,9 +58,9 @@ Every finding has a code. `la-liquid explain <code>` shows the same information 
 | LQ040 | error | Render error: Logic Apps writes `Liquid error: ...` into the output |
 | LQ041 | error | Output is not valid JSON for a `*ToJson` kind; Logic Apps fails the action |
 | LQ042 | warning | The output is empty |
-| LQ043 | warning | The JSON output has empty array items, which become `undefined` |
+| LQ043 | warning | The JSON output has an empty array item or value (`"x": ,` from `{{ x }}` without quotes), which becomes `undefined` |
 
-### Differences from Shopify Liquid (LQ100–LQ128)
+### Differences from Shopify Liquid (LQ100–LQ133)
 
 DotLiquid's filters don't always behave like Shopify's Ruby implementation, especially with numbers. `validate --input`, `transform` and `test` find these differences **with the actual values**:
 - **How:** the map is rendered a second time, with each relevant filter wrapped in an observer. The observer records the real input and calls the original filter.
@@ -87,6 +100,13 @@ Every result was confirmed on the real Logic Apps engine and compared with the [
 | LQ126 | `{% for x in singleObject %}` | renders nothing | iterates the hash |
 | LQ127 | `{{ content.address }}` (an object) | nothing | the object as text |
 | LQ128 | `content.Root.Packages \| Sort: "Weight"` (also `Compact`, `Uniq`) on XML elements | flattened into all child values | sorted elements |
+| LQ129 | `3000000000 \| Plus: 1` / `25000000 \| Times: 100` | `-1294967295` / `Liquid error`: 32-bit whole numbers | `3000000001` / `2500000000` |
+| LQ130 | `{% if content.tags contains 'urgent' %}` with `["urgent"]` | false: `contains` never finds text in a list | true |
+| LQ131 | `{% if content.amount > 1000 %}` with `"999.50"` | true: compared as text | error |
+| LQ132 | `{% if content.missing == blank %}` / `{% if {} == empty %}` | false / false | true / true |
+| LQ133 | `{{ content.active \| Default: false }}` with `true` | `True`, invalid in JSON output | `true` |
+
+LQ121 also covers numbers: `{{ 1700000000 | Date: "yyyy" }}` gives `1700000000` (Shopify Liquid reads a Unix timestamp). LQ124 also covers objects: `{{ content.address | Size }}` gives `0`.
 
 The working conversion from text to a whole number is `| Times: 1.0 | Round`: `{{ "2026" | Times: 1.0 | Round | Plus: 10 }}` gives `2036`.
 
@@ -103,6 +123,7 @@ When two checks see the same problem, it is reported once, at the place in the m
 | LQ040 `Liquid error: Parameter count mismatch.` in the output, plus LQ102 at `Minus` | One LQ102 **error** at the `Minus` call, with the output line |
 | LQ040 `(Parameter 'count')` in the output, plus LQ101 at `Times` | One LQ101 error at the `Times` call |
 | LQ040 `does not allow includes`, plus LQ022 at `include` | One LQ022 error |
+| LQ040 `target of an invocation` in the output, plus LQ129 at `Times` | One LQ129 error at the `Times` call |
 | LQ023 for `content.item.code`, plus LQ025 for `.@code` | One LQ025, noting the value was not found |
 | LQ001 without location, plus LQ003 with location | One LQ003, with the message of Logic Apps |
 

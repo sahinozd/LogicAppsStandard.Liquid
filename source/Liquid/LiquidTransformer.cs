@@ -137,12 +137,14 @@ public sealed class LiquidTransformer : ILiquidTransformer
         return new LiquidTransformResult(kind, DiagnosticMerger.Merge(diagnostics, map), rendered, output);
     }
 
-    // A deviation that the static checks already reported on the same line is not reported twice.
+    // A deviation that the static checks already reported on the same line is not reported twice. Only the static findings
+    // count: two deviations with the same code on one line (two Replace calls) are both reported.
     private static void AddDeviations(IReadOnlyList<Diagnostic> deviations, List<Diagnostic> diagnostics)
     {
+        var existing = diagnostics.ToList();
         foreach (var deviation in deviations)
         {
-            if (!diagnostics.Any(d => d.Code == deviation.Code && d.Line == deviation.Line))
+            if (!existing.Any(d => d.Code == deviation.Code && d.Line == deviation.Line))
             {
                 diagnostics.Add(deviation);
             }
@@ -213,7 +215,7 @@ public sealed class LiquidTransformer : ILiquidTransformer
         try
         {
             // Exactly like the runtime: Render(Hash) without RenderParameters, so errors are written into the output.
-            rendered = template.Render(Hash.FromAnonymousObject(new { content }), CultureInfo.CurrentCulture);
+            rendered = RuntimeTypeNames.Normalize(template.Render(Hash.FromAnonymousObject(new { content }), CultureInfo.CurrentCulture));
         }
         catch (RenderException ex)
         {
@@ -246,10 +248,11 @@ public sealed class LiquidTransformer : ILiquidTransformer
                 searchFrom = index + 1;
             }
 
-            var (cause, fix) = RenderErrorHint(error.Message);
+            var message = RuntimeTypeNames.Normalize(error.Message);
+            var (cause, fix) = RenderErrorHint(message);
             diagnostics.Add(new Diagnostic(DiagnosticCodes.RenderError, DiagnosticSeverity.Error, "Render error written into the output", DiagnosticSource.Output, line, column)
             {
-                Values = error.Message,
+                Values = message,
                 Explanation = $"Logic Apps does not fail the action: DotLiquid writes 'Liquid error: ...' into the output instead.{cause}",
                 Fix = fix,
             });
@@ -263,7 +266,8 @@ public sealed class LiquidTransformer : ILiquidTransformer
     {
         if (message.Contains("target of an invocation", StringComparison.Ordinal))
         {
-            return (" This text usually comes from a whole-number division by zero (DividedBy or Modulo with 0).", "Check for zero before dividing.");
+            return (" This text usually comes from a whole-number division by zero (DividedBy or Modulo with 0), or a Times result above 2,147,483,647.",
+                "Check for zero before dividing, and use a decimal operand ('| Times: 100.0') for large numbers.");
         }
 
         if (message.Contains("was not in a correct format", StringComparison.Ordinal))
@@ -271,7 +275,56 @@ public sealed class LiquidTransformer : ILiquidTransformer
             return (" A filter argument that must be a number got text, for example 'Truncate: \"short\"'.", "Pass a number as argument.");
         }
 
+        if (message.Contains("cannot be converted to type 'System.String'", StringComparison.Ordinal))
+        {
+            return (" A filter for text got a list or an object. In DotLiquid, Default, Slice, Truncate, Upcase and the other text filters fail on a list " +
+                "(Shopify Liquid: Slice takes list items, and Default returns the default for an empty list).",
+                "Loop over the list, use '| First' or '[0]' for one item, or check '.size' before using Default.");
+        }
+
+        if (message.Contains("Failed to compare two elements", StringComparison.Ordinal))
+        {
+            return (" Sort got values that can't be compared with each other, for example whole and decimal numbers (2 and 1.5) from JSON, or numbers and text.",
+                "Make the values the same type, or sort in the workflow before the Liquid action.");
+        }
+
+        if (message.Contains("Index was out of range", StringComparison.Ordinal))
+        {
+            return (" A list index is negative or past the end. DotLiquid has no negative indexes ([-1]), and an index past the end fails (Shopify Liquid: empty).",
+                "Use '.last' or '| Last' for the last item, and check '.size' before reading an index.");
+        }
+
+        if (message.Contains("Invalid cast from", StringComparison.Ordinal))
+        {
+            return (" A filter for lists (Join, Sort, Map, First, ...) got a single value.", "Only use list filters on lists.");
+        }
+
         return (string.Empty, null);
+    }
+
+    private static string MissingValueFix(string variable, string root)
+    {
+        var segments = variable.Split('.');
+        var last = segments[^1];
+        if (segments.Skip(1).Any(segment => segment.Length > 0 && segment.All(char.IsAsciiDigit)))
+        {
+            return "Read a list item with brackets: '[0]' instead of '.0'.";
+        }
+
+        if (last is "Size" or "First" or "Last")
+        {
+            return $"For the number of items or the first or last item, write it in lowercase: '.{(last == "Size" ? "size" : last == "First" ? "first" : "last")}'. " +
+                "On an object, '.size' is empty in DotLiquid.";
+        }
+
+        if (last == "size")
+        {
+            return "'.size' only works on text and lists; on an object it is empty in DotLiquid.";
+        }
+
+        return root == "content"
+            ? "Check the spelling (names are case-sensitive) against the input, or whether the input is complete. Use '| Default' for optional values."
+            : "Check that it is assigned before it is used, and the spelling (names are case-sensitive).";
     }
 
     private static void AddMissingValue(string message, List<Diagnostic> diagnostics)
@@ -279,6 +332,12 @@ public sealed class LiquidTransformer : ILiquidTransformer
         var match = _missingVariablePattern.Match(message);
         var variable = match.Success ? match.Groups[1].Value : message;
         var root = variable.Split('.', '[')[0];
+
+        // forloop problems (wrong casing, forloop inside JSONArrayFor) are reported by the static checks, at the location.
+        if (root == "forloop" && diagnostics.Any(d => d.Code is DiagnosticCodes.ForloopProperty or DiagnosticCodes.ForloopInJsonArrayFor))
+        {
+            return;
+        }
 
         // An unassigned variable is already reported by the linter (LQ020), with its location.
         if (root != "content" && diagnostics.Any(d => d.Code == DiagnosticCodes.UndefinedVariable && d.Message.Contains($"'{root}'", StringComparison.Ordinal)))
@@ -291,10 +350,10 @@ public sealed class LiquidTransformer : ILiquidTransformer
             return;
         }
 
-        diagnostics.Add(new Diagnostic(DiagnosticCodes.MissingValue, DiagnosticSeverity.Warning, $"'{variable}' was not found in the input")
+        diagnostics.Add(new Diagnostic(DiagnosticCodes.MissingValue, DiagnosticSeverity.Warning, root == "content" ? $"'{variable}' was not found in the input" : $"'{variable}' has no value")
         {
             Explanation = "It renders as empty, without an error in Logic Apps.",
-            Fix = "Check the spelling (names are case-sensitive) against the input, or whether the input is complete. Use '| Default' for optional values.",
+            Fix = MissingValueFix(variable, root),
         });
     }
 
@@ -342,8 +401,8 @@ public sealed class LiquidTransformer : ILiquidTransformer
             diagnostics.Add(new Diagnostic(DiagnosticCodes.InvalidJsonOutput, DiagnosticSeverity.Error, "The output is not valid JSON", DiagnosticSource.Output, NullIfZero(ex.LineNumber), NullIfZero(ex.LinePosition))
             {
                 Values = ex.Message,
-                Explanation = "Logic Apps fails the action ('The transformed value is not a valid JSON'). A common cause is a text value with a double quote or backslash: DotLiquid has no JSON escape filter.",
-                Fix = "Escape text values with '| Replace: '\\\\', '\\\\' | Replace: '\"', '\\\"''.",
+                Explanation = "Logic Apps fails the action ('The transformed value is not a valid JSON')." + InvalidJsonCause(ex.Message),
+                Fix = "Escape text values with '| Replace: '\\\\', '\\\\' | Replace: '\"', '\\\"'', and print true/false values without text filters.",
             });
             return null;
         }
@@ -353,16 +412,37 @@ public sealed class LiquidTransformer : ILiquidTransformer
         if (undefined is not null)
         {
             var lineInfo = (IJsonLineInfo)undefined;
-            diagnostics.Add(new Diagnostic(DiagnosticCodes.UndefinedInOutput, DiagnosticSeverity.Warning, "The output contains an empty array item",
+            var inArray = undefined.Parent is JArray;
+            diagnostics.Add(new Diagnostic(DiagnosticCodes.UndefinedInOutput, DiagnosticSeverity.Warning, inArray ? "The output contains an empty array item" : "The output contains an empty value",
                 DiagnosticSource.Output, lineInfo.HasLineInfo() ? lineInfo.LineNumber : null, lineInfo.HasLineInfo() ? lineInfo.LinePosition : null)
             {
                 Values = $"at '{undefined.Path}'",
-                Explanation = "Logic Apps turns it into 'undefined', which is not valid JSON for the next system. Typically a stray comma, for example from an if inside JSONArrayFor that skips an item.",
-                Fix = "Remove the stray comma, or select the items before the loop.",
+                Explanation = inArray
+                    ? "Logic Apps turns it into 'undefined', which is not valid JSON for the next system. Typically a stray comma, for example from an if inside JSONArrayFor that skips an item."
+                    : "Logic Apps turns it into 'undefined', which is not valid JSON for the next system. Typically '{{ x }}' without quotes for a value that is missing or null.",
+                Fix = inArray
+                    ? "Remove the stray comma, or select the items before the loop."
+                    : "Quote text values ('\"{{ x }}\"'), or use '| Default: 0' or '| Default: \"null\"' for values that can be missing.",
             });
         }
 
         return output;
+    }
+
+    // The character Newtonsoft stumbled on tells the usual cause.
+    private static string InvalidJsonCause(string message)
+    {
+        if (message.Contains("parsing value: T.", StringComparison.Ordinal) || message.Contains("parsing value: F.", StringComparison.Ordinal))
+        {
+            return " A true/false value went through a text filter (for example '| Default: false'), which writes 'True' or 'False'.";
+        }
+
+        if (message.Contains("parsing value: L.", StringComparison.Ordinal))
+        {
+            return " A render error ('Liquid error: ...') was written where a value was expected.";
+        }
+
+        return " A common cause is a text value with a double quote or backslash: DotLiquid has no JSON escape filter.";
     }
 
     private static int? NullIfZero(int value)

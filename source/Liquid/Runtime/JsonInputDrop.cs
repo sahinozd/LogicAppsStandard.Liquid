@@ -30,6 +30,15 @@ internal sealed class JsonInputDrop : IIndexable, ILiquidizable
         }
     }
 
+    /// <summary>True for a JSON object without properties. Used by the analysis only.</summary>
+    internal bool IsEmptyObject
+    {
+        get
+        {
+            return _token is JObject { Count: 0 };
+        }
+    }
+
     public bool ContainsKey(object key)
     {
         // Uses the JSON indexer, so an invalid key fails in the same way as in the runtime.

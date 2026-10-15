@@ -30,6 +30,14 @@ public sealed class LiquidLinter : ILiquidLinter
     private static readonly Regex _specialPathSegmentPattern = new(@"(?<=[\w\]])\.(?<segment>[@$#][\w:-]*|[\w-]+:[\w:-]+)");
     // An unquoted Z in a .NET date format is written literally.
     private static readonly Regex _literalUtcMarkerPattern = new(@"(?<!')Z(?!')");
+    private static readonly Regex _forloopPropertyPattern = new(@"\bforloop\.(?<property>\w+)");
+    // A comparison or logical operator in the value of an assign, before the first filter.
+    private static readonly Regex _assignOperatorPattern = new(@"==|!=|<>|<=|>=|\s[<>]\s|\s(?:contains|and|or)\s");
+
+    private static readonly HashSet<string> _forloopProperties = new(StringComparer.Ordinal) { "name", "length", "index", "index0", "rindex", "rindex0", "first", "last" };
+    private static readonly HashSet<string> _loopTags = new(StringComparer.Ordinal) { "for", "tablerow", RuntimeConstants.JsonArrayForTagName };
+
+    private const string CommentHint = " DotLiquid also reads the tags inside a comment block.";
 
     /// <summary>
     /// Runs all static checks on a template.
@@ -65,10 +73,12 @@ public sealed class LiquidLinter : ILiquidLinter
 
             if (token.Kind == LiquidTokenKind.Output)
             {
+                CheckBraceInOutput(token, position, diagnostics);
                 if (!insideComment)
                 {
                     CheckFilters(token, token.Markup, position, diagnostics);
                     CheckPaths(token, token.Markup, position, diagnostics);
+                    CheckForloop(token, token.Markup, openBlocks, position, diagnostics);
                     usages.AddRange(VariableRoots(token.Markup).Select(n => (n, token)));
                 }
 
@@ -93,6 +103,11 @@ public sealed class LiquidLinter : ILiquidLinter
                 continue;
             }
 
+            if (!insideComment)
+            {
+                CheckForloop(token, token.TagArguments, openBlocks, position, diagnostics);
+            }
+
             if (LiquidLanguage.IntermediateTags.Contains(name))
             {
                 if (openBlocks.Count == 0)
@@ -100,7 +115,17 @@ public sealed class LiquidLinter : ILiquidLinter
                     diagnostics.Add(At(position, token, DiagnosticCodes.UnbalancedBlock, DiagnosticSeverity.Error, $"'{name}' is used outside of a block",
                         "Logic Apps fails to parse the map.", $"Put '{name}' inside an if, unless or case block."));
                 }
-                else if (!insideComment)
+                else if (insideComment)
+                {
+                    // Not evaluated.
+                }
+                else if (name == "else" && token.TagArguments.Length > 0)
+                {
+                    diagnostics.Add(At(position, token, DiagnosticCodes.ElseWithCondition, DiagnosticSeverity.Error, $"'else {token.TagArguments}': the condition is ignored",
+                        "DotLiquid ignores everything after 'else', so this is a plain else: it runs whenever the conditions before it are false.",
+                        "Use 'elsif', for example '{% elsif ... %}'.", "else"));
+                }
+                else
                 {
                     CheckCondition(token, position, diagnostics);
                     CheckPaths(token, token.TagArguments, position, diagnostics);
@@ -121,9 +146,10 @@ public sealed class LiquidLinter : ILiquidLinter
                     (null, _) => At(position, token, DiagnosticCodes.UnknownTag, DiagnosticSeverity.Error, $"Unknown tag '{name}'",
                         "Logic Apps fails to parse the map.", null, name),
                     _ => At(position, token, DiagnosticCodes.UnknownTag, DiagnosticSeverity.Error, $"Unknown tag '{name}'",
-                        "Tags are case-sensitive in Logic Apps, so the map fails to parse.", $"Use '{suggestion}'.", name),
+                        name.Equals(suggestion, StringComparison.OrdinalIgnoreCase) ? "Tags are case-sensitive in Logic Apps, so the map fails to parse." : "Logic Apps fails to parse the map.",
+                        $"Use '{suggestion}'.", name),
                 };
-                diagnostics.Add(unknownTag);
+                diagnostics.Add(insideComment ? unknownTag with { Explanation = unknownTag.Explanation + CommentHint } : unknownTag);
                 continue;
             }
 
@@ -195,6 +221,15 @@ public sealed class LiquidLinter : ILiquidLinter
                 if (assignment.Success)
                 {
                     assigned.Add(assignment.Groups["name"].Value);
+                    var operation = _assignOperatorPattern.Match(RemoveStrings(assignment.Groups["value"].Value).Split('|')[0]);
+                    if (operation.Success)
+                    {
+                        var symbol = operation.Value.Trim();
+                        diagnostics.Add(At(position, token, DiagnosticCodes.ComparisonInAssign, DiagnosticSeverity.Error, $"'{symbol}' in assign is not evaluated",
+                            $"assign does not evaluate comparisons or and/or: '{assignment.Groups["name"].Value}' gets the first value of the expression.",
+                            "Use an if that assigns true or false, for example '{% assign isBig = false %}{% if x > 10 %}{% assign isBig = true %}{% endif %}'.", symbol));
+                    }
+
                     CheckFilters(token, assignment.Groups["value"].Value, position, diagnostics);
                     usages.AddRange(VariableRoots(assignment.Groups["value"].Value).Select(n => (n, token)));
                 }
@@ -254,6 +289,10 @@ public sealed class LiquidLinter : ILiquidLinter
         var hint = open.Name.Equals(blockName, StringComparison.OrdinalIgnoreCase)
             ? $" End tags are case-sensitive: use 'end{open.Name}'."
             : string.Empty;
+        if (openBlocks.Any(b => b.Name == "comment"))
+        {
+            hint += CommentHint;
+        }
         diagnostics.Add(At(position, token, DiagnosticCodes.UnbalancedBlock, DiagnosticSeverity.Error, $"'{token.TagName}' does not close '{open.Name}'",
             $"'{open.Name}' was opened at '{open.Token.Raw.Split('\n')[0]}'. Logic Apps fails to parse the map.{hint}", $"Close '{open.Name}' first with '{{% end{open.Name} %}}'."));
 
@@ -387,9 +426,78 @@ public sealed class LiquidLinter : ILiquidLinter
             "Use a for loop with an if to select items.", filter);
     }
 
+    // DotLiquid ends an output at the first '}', also inside quotes ('{{ x | Default: "{}" }}').
+    private static void CheckBraceInOutput(LiquidToken token, TextPosition position, List<Diagnostic> diagnostics)
+    {
+        var brace = token.Raw.IndexOf('}', 2);
+        if (brace >= 0 && brace < token.Raw.Length - 2)
+        {
+            var (line, column) = position.At(token.Offset + brace);
+            diagnostics.Add(new Diagnostic(DiagnosticCodes.BraceInOutput, DiagnosticSeverity.Error, "'}' inside {{ }} ends the output", DiagnosticSource.Map, line, column)
+            {
+                Explanation = "DotLiquid ends an output at the first '}', also inside quotes, so Logic Apps fails to parse the map.",
+                Fix = "Assign the text first, for example '{% assign braces = \"{}\" %}{{ x | Default: braces }}'. A '}' inside {% %} is fine.",
+            });
+        }
+    }
+
+    // forloop properties are lowercase, and JSONArrayFor has no forloop.
+    private static void CheckForloop(LiquidToken token, string expression, Stack<OpenBlock> openBlocks, TextPosition position, List<Diagnostic> diagnostics)
+    {
+        var matches = _forloopPropertyPattern.Matches(RemoveStrings(expression));
+        if (matches.Count == 0)
+        {
+            return;
+        }
+
+        var loop = openBlocks.FirstOrDefault(b => _loopTags.Contains(b.Name));
+        if (loop?.Name == RuntimeConstants.JsonArrayForTagName)
+        {
+            diagnostics.Add(At(position, token, DiagnosticCodes.ForloopInJsonArrayFor, DiagnosticSeverity.Error, "JSONArrayFor has no forloop",
+                $"'{matches[0].Value}' is always empty inside JSONArrayFor; only for and tablerow set forloop.",
+                "Use a for loop when you need forloop, and write the commas yourself: '{% unless forloop.last %},{% endunless %}'.", "forloop"));
+            return;
+        }
+
+        foreach (Match match in matches)
+        {
+            var property = match.Groups["property"].Value;
+            if (_forloopProperties.Contains(property))
+            {
+                continue;
+            }
+
+            var lower = _forloopProperties.FirstOrDefault(p => p.Equals(property, StringComparison.OrdinalIgnoreCase));
+            diagnostics.Add(lower is not null
+                ? At(position, token, DiagnosticCodes.ForloopProperty, DiagnosticSeverity.Error, $"'forloop.{property}' is always empty",
+                    $"forloop properties are lowercase in DotLiquid; '{property}' does not exist, so a check such as 'forloop.{property} == true' is never true.",
+                    $"Use 'forloop.{lower}'.", match.Value)
+                : At(position, token, DiagnosticCodes.ForloopProperty, DiagnosticSeverity.Error, $"forloop has no property '{property}'",
+                    "It is always empty.", "Use index, index0, rindex, rindex0, first, last or length.", match.Value));
+        }
+    }
+
     private static void CheckCondition(LiquidToken token, TextPosition position, List<Diagnostic> diagnostics)
     {
         var condition = RemoveStrings(token.TagArguments);
+        if (token.TagName is "if" or "unless" or "elsif" or "elseif")
+        {
+            if (condition.Contains('(', StringComparison.Ordinal) || condition.Contains(')', StringComparison.Ordinal))
+            {
+                diagnostics.Add(At(position, token, DiagnosticCodes.ParenthesesInCondition, DiagnosticSeverity.Error, "Parentheses in a condition",
+                    "Liquid has no parentheses in conditions. DotLiquid does not fail, but evaluates the condition differently than intended.",
+                    "Nest if blocks, or assign the parts to variables first. and/or are evaluated from right to left: 'a and b or c' means 'a and (b or c)'.",
+                    condition.Contains('(', StringComparison.Ordinal) ? "(" : ")"));
+            }
+
+            if (condition.Contains('|', StringComparison.Ordinal))
+            {
+                diagnostics.Add(At(position, token, DiagnosticCodes.FilterInCondition, DiagnosticSeverity.Error, "Filter in a condition is ignored",
+                    "DotLiquid ignores filters in a condition, so it only checks whether the value is set: '{% if x | Size > 5 %}' is true for any non-empty x.",
+                    "Assign first: '{% assign length = x | Size %}{% if length > 5 %}'.", "|"));
+            }
+        }
+
         if (_nilComparisonPattern.IsMatch(condition))
         {
             diagnostics.Add(At(position, token, DiagnosticCodes.NilComparison, DiagnosticSeverity.Warning, "Comparison with nil misses JSON null values",

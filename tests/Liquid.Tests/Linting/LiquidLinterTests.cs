@@ -358,6 +358,147 @@ public sealed class LiquidLinterTests
         LintAndFind("{% include 'header' %}", DiagnosticCodes.IncludeNotSupported);
     }
 
+    [TestCase("{{ content.x | Default: '{}' }}", 27)]
+    [TestCase("{{ content.x | Append: '}' }}", 25)]
+    public void Lint_Should_Report_Error_When_Output_Contains_A_Single_Brace(string map, int column)
+    {
+        // Act
+        var diagnostic = LintAndFind(map, DiagnosticCodes.BraceInOutput);
+
+        // Assert
+        Assert.That(diagnostic.Column, Is.EqualTo(column), "points at the '}'");
+    }
+
+    [Test]
+    public void Lint_Should_Not_Report_Brace_When_It_Is_Inside_A_Tag()
+    {
+        // Act
+        var diagnostics = _linter.Lint("{% assign braces = '{}' %}{{ content.x | Default: braces }}");
+
+        // Assert
+        Assert.That(diagnostics, Is.Empty);
+    }
+
+    [TestCase("{% for x in content.a %}{% if forloop.Last == true %}x{% endif %}{% endfor %}", "forloop.last")]
+    [TestCase("{% for x in content.a %}{{ forloop.Index }}{% endfor %}", "forloop.index")]
+    [TestCase("{% for x in content.a %}{{ forloop.position }}{% endfor %}", "index0")]
+    public void Lint_Should_Report_Error_When_Forloop_Property_Does_Not_Exist(string map, string fix)
+    {
+        // Act
+        var diagnostic = LintAndFind(map, DiagnosticCodes.ForloopProperty);
+
+        // Assert
+        Assert.That(diagnostic.Fix, Does.Contain(fix));
+    }
+
+    [Test]
+    public void Lint_Should_Not_Report_Forloop_When_Properties_Are_Lowercase()
+    {
+        // Act
+        var diagnostics = _linter.Lint("{% for x in content.a %}{{ forloop.index }}{% unless forloop.last %},{% endunless %}{% endfor %}");
+
+        // Assert
+        Assert.That(diagnostics, Is.Empty);
+    }
+
+    [Test]
+    public void Lint_Should_Report_Error_When_Forloop_Is_Used_Inside_JsonArrayFor()
+    {
+        // Act & Assert
+        LintAndFind("[{% JSONArrayFor x in content.a %}{{ forloop.index }}{% endJSONArrayFor %}]", DiagnosticCodes.ForloopInJsonArrayFor);
+    }
+
+    [Test]
+    public void Lint_Should_Not_Report_Forloop_When_For_Is_Nested_In_JsonArrayFor()
+    {
+        // Act
+        var diagnostics = _linter.Lint("[{% JSONArrayFor x in content.a %}{% for y in x.b %}{{ forloop.index }}{% endfor %}{% endJSONArrayFor %}]");
+
+        // Assert
+        Assert.That(diagnostics.Select(d => d.Code), Does.Not.Contain(DiagnosticCodes.ForloopInJsonArrayFor));
+    }
+
+    [TestCase("{% if content.n == 1 %}a{% else if content.n == 2 %}b{% endif %}")]
+    [TestCase("{% if content.n == 1 %}a{% else content.n == 2 %}b{% endif %}")]
+    public void Lint_Should_Report_Error_When_Else_Has_A_Condition(string map)
+    {
+        // Act
+        var diagnostics = _linter.Lint(map);
+
+        // Assert
+        Assert.That(diagnostics.Select(d => d.Code), Does.Contain(DiagnosticCodes.ElseWithCondition));
+        Assert.That(diagnostics.Select(d => d.Code), Does.Not.Contain(DiagnosticCodes.UndefinedVariable), "'if' after else is not a variable");
+    }
+
+    [Test]
+    public void Lint_Should_Report_Error_When_Condition_Has_Parentheses()
+    {
+        // Act & Assert
+        LintAndFind("{% if (content.a or content.b) and content.c %}x{% endif %}", DiagnosticCodes.ParenthesesInCondition);
+    }
+
+    [Test]
+    public void Lint_Should_Not_Report_Parentheses_When_They_Are_In_A_String()
+    {
+        // Act
+        var diagnostics = _linter.Lint("{% if content.a == '(x)' %}x{% endif %}");
+
+        // Assert
+        Assert.That(diagnostics.Select(d => d.Code), Does.Not.Contain(DiagnosticCodes.ParenthesesInCondition));
+    }
+
+    [TestCase("{% if content.t | Size > 5 %}x{% endif %}")]
+    [TestCase("{% unless content.t | Downcase == 'a' %}x{% endunless %}")]
+    public void Lint_Should_Report_Error_When_Condition_Has_A_Filter(string map)
+    {
+        // Act & Assert
+        LintAndFind(map, DiagnosticCodes.FilterInCondition);
+    }
+
+    [TestCase("{% assign big = content.n > 10 %}", ">")]
+    [TestCase("{% assign same = content.a == content.b %}", "==")]
+    [TestCase("{% assign both = content.a and content.b %}", "and")]
+    public void Lint_Should_Report_Error_When_Assign_Has_A_Comparison(string map, string symbol)
+    {
+        // Act
+        var diagnostic = LintAndFind(map, DiagnosticCodes.ComparisonInAssign);
+
+        // Assert
+        Assert.That(diagnostic.Title, Does.Contain($"'{symbol}'"));
+    }
+
+    [TestCase("{% assign label = 'a > b' %}")]
+    [TestCase("{% assign total = content.n | Plus: 1 %}")]
+    [TestCase("{% assign items = content.list | Sort: 'date' %}")]
+    public void Lint_Should_Not_Report_Comparison_When_Assign_Has_None(string map)
+    {
+        // Act
+        var diagnostics = _linter.Lint(map);
+
+        // Assert
+        Assert.That(diagnostics.Select(d => d.Code), Does.Not.Contain(DiagnosticCodes.ComparisonInAssign));
+    }
+
+    [Test]
+    public void Lint_Should_Suggest_Elsif_When_Tag_Is_Elif()
+    {
+        // Act
+        var diagnostic = LintAndFind("{% if content.a %}a{% elif content.b %}b{% endif %}", DiagnosticCodes.UnknownTag);
+
+        // Assert
+        Assert.That(diagnostic.Fix, Does.Contain("'elsif'"));
+    }
+
+    [Test]
+    public void Lint_Should_Explain_That_Comment_Tags_Are_Parsed_When_Comment_Contains_A_Tag()
+    {
+        // Act
+        var diagnostic = LintAndFind("{% comment %} {% If x %} {% endcomment %}", DiagnosticCodes.UnknownTag);
+
+        // Assert
+        Assert.That(diagnostic.Explanation, Does.Contain("inside a comment"));
+    }
+
     [Test]
     public void Lint_Should_Not_Report_Unclosed_Block_When_Map_Uses_Include()
     {

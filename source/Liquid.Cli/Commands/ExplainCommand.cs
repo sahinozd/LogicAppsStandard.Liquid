@@ -106,6 +106,7 @@ internal static class ExplainCommand
             DiagnosticCategory.Syntax => "Syntax and tags (the map does not parse)",
             DiagnosticCategory.Filters => "Filters (skipped or misused filters)",
             DiagnosticCategory.ValuesAndPaths => "Values and paths (empty or wrong values, without an error)",
+            DiagnosticCategory.Conditions => "Conditions and loops (silently wrong decisions)",
             DiagnosticCategory.Input => "Input",
             DiagnosticCategory.Output => "Output",
             _ => "Differences from Shopify Liquid (found while rendering with the input)",
