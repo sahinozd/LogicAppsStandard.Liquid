@@ -15,12 +15,12 @@ namespace LogicApps.Liquid.ConformanceTests;
 [Category("Conformance")]
 public sealed class RuntimeConformanceTests
 {
-    private static readonly Lazy<RuntimeLiquidEngine?> _runtime = new(RuntimeLiquidEngine.TryLoad);
-    private static readonly string[] _cultures = ["en-US", "nl-NL"];
+    private static readonly Lazy<RuntimeLiquidEngine?> RuntimeEngine = new(RuntimeLiquidEngine.TryLoad);
+    private static readonly string[] Cultures = ["en-US", "nl-NL"];
 
     private static IEnumerable<TestCaseData> Cases()
     {
-        return from culture in _cultures
+        return from culture in Cultures
                from conformanceCase in ConformanceCases.All()
                select new TestCaseData(conformanceCase, culture).SetName($"{conformanceCase.Name} [{culture}]");
     }
@@ -31,7 +31,7 @@ public sealed class RuntimeConformanceTests
         ArgumentNullException.ThrowIfNull(conformanceCase);
 
         // Arrange
-        var runtime = _runtime.Value;
+        var runtime = RuntimeEngine.Value;
         if (runtime is null)
         {
             Assert.Ignore($"No Logic Apps workflow extension bundle found. Install the Azure Logic Apps (Standard) VS Code extension, or set {RuntimeLiquidEngine.BundlePathVariable}.");

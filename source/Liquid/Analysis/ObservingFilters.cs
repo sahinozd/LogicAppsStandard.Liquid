@@ -15,6 +15,11 @@ namespace LogicApps.Liquid.Analysis;
 /// records an observation when the actual values hit a deviation, and then calls the original filter, so the result is
 /// unchanged. These filters are only used for the observing render; the output always comes from the normal render.
 /// </summary>
+// The filter methods are called by DotLiquid through reflection (Strainer), which ReSharper can't see.
+// ReSharper disable UnusedMember.Global
+// The collections DotLiquid passes (lists, arrays, XML elements) can be enumerated more than once, and the original filter
+// must get exactly the same object: a copy into a list would change what Sort, Uniq and Join do with XML elements.
+// ReSharper disable PossibleMultipleEnumeration
 internal sealed class ObservingFilters
 {
     private static readonly Regex TimeZonePattern = new(@"(Z|[+-]\d{2}:?\d{2})$", RegexOptions.IgnoreCase);
