@@ -12,7 +12,7 @@ public class JsonArrayFor : Block
 {
     private const string Separator = ",";
 
-    private static readonly Regex _markup = new($@"(?<item>\w+)\s+in\s+(?<collection>(?:{DotLiquid.Liquid.QuotedFragment})+)(?:\s+where\s+(?<name>\w+))?");
+    private static readonly Regex InternalMarkup = new($@"(?<item>\w+)\s+in\s+(?<collection>(?:{DotLiquid.Liquid.QuotedFragment})+)(?:\s+where\s+(?<name>\w+))?");
 
     private string _item = string.Empty;
     private string _collection = string.Empty;
@@ -21,7 +21,7 @@ public class JsonArrayFor : Block
     /// <inheritdoc />
     public override void Initialize(string tagName, string markup, List<string> tokens)
     {
-        var match = _markup.Match(markup);
+        var match = InternalMarkup.Match(markup);
         if (!match.Success)
         {
             throw new SyntaxException("Incorrect format for JSONArrayFor");

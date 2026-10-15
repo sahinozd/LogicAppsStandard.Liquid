@@ -23,17 +23,17 @@ namespace LogicApps.Liquid.Analysis;
 /// </remarks>
 public sealed class DeviationDetector : IDeviationDetector
 {
-    private static readonly Regex _stringPattern = new(@"""[^""]*""|'[^']*'");
-    private static readonly Regex _filterNamePattern = new(@"\|\s*(?<name>\w+)");
+    private static readonly Regex StringPattern = new(@"""[^""]*""|'[^']*'");
+    private static readonly Regex FilterNamePattern = new(@"\|\s*(?<name>\w+)");
 
     // DotLiquid's own patterns for conditions (If.ExpressionsAndOperators and If.Syntax), so the operators are found exactly as DotLiquid finds them.
     private const string QuotedFragment = @"(?:""[^""]*""|'[^']*')|(?:[^\s,\|'""]|(?:""[^""]*""|'[^']*'))+";
-    private static readonly Regex _conditionExpressionPattern = new(@$"(?:\b(?:\s?and\s?|\s?or\s?)\b|(?:\s*(?!\b(?:\s?and\s?|\s?or\s?)\b)(?:{QuotedFragment}|\S+)\s*)+)");
-    private static readonly Regex _conditionSyntaxPattern = new(@$"({QuotedFragment})\s*([=!<>a-zA-Z_]+)?\s*({QuotedFragment})?");
+    private static readonly Regex ConditionExpressionPattern = new(@$"(?:\b(?:\s?and\s?|\s?or\s?)\b|(?:\s*(?!\b(?:\s?and\s?|\s?or\s?)\b)(?:{QuotedFragment}|\S+)\s*)+)");
+    private static readonly Regex ConditionSyntaxPattern = new(@$"({QuotedFragment})\s*([=!<>a-zA-Z_]+)?\s*({QuotedFragment})?");
 
     private const int MaxValuesPerLocation = 3;
 
-    private static readonly Dictionary<string, MethodInfo> _observedFilters = typeof(ObservingFilters)
+    private static readonly Dictionary<string, MethodInfo> ObservedFilters = typeof(ObservingFilters)
         .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
         .ToDictionary(m => m.Name, StringComparer.Ordinal);
 
@@ -84,7 +84,7 @@ public sealed class DeviationDetector : IDeviationDetector
             CultureInfo.CurrentCulture);
         foreach (var site in sites)
         {
-            context.Strainer.AddMethodInfo(site.Name, new ObservingFilters(site.Line, site.Column), _observedFilters[site.FilterName]);
+            context.Strainer.AddMethodInfo(site.Name, new ObservingFilters(site.Line, site.Column), ObservedFilters[site.FilterName]);
         }
 
         string? rendered = null;
@@ -133,11 +133,11 @@ public sealed class DeviationDetector : IDeviationDetector
             AddConditionEdits(token, position, conditions, edits);
 
             // Strings are masked, so a '|' inside a string literal is not seen as a filter.
-            var masked = _stringPattern.Replace(token.Raw, m => new string(' ', m.Length));
-            foreach (Match match in _filterNamePattern.Matches(masked))
+            var masked = StringPattern.Replace(token.Raw, m => new string(' ', m.Length));
+            foreach (Match match in FilterNamePattern.Matches(masked))
             {
                 var name = match.Groups["name"];
-                if (_observedFilters.ContainsKey(name.Value))
+                if (ObservedFilters.ContainsKey(name.Value))
                 {
                     var offset = token.Offset + name.Index;
                     var (line, column) = position.At(offset);
@@ -183,9 +183,9 @@ public sealed class DeviationDetector : IDeviationDetector
             return;
         }
 
-        foreach (Match expression in _conditionExpressionPattern.Matches(markup))
+        foreach (Match expression in ConditionExpressionPattern.Matches(markup))
         {
-            var syntax = _conditionSyntaxPattern.Match(expression.Value);
+            var syntax = ConditionSyntaxPattern.Match(expression.Value);
             var @operator = syntax.Groups[2];
             if (!syntax.Success || !@operator.Success || !Condition.Operators.TryGetValue(@operator.Value, out var original))
             {

@@ -19,9 +19,9 @@ internal sealed class PrettyReportWriter : IReportWriter
     private const int TabWidth = 4;
 
     // The word at the column: a name, a path such as 'content.order.number' or '.@code', or else a single character.
-    private static readonly Regex _wordPattern = new(@"^\.?[@$#]?\w+(?:[.:][@$#]?\w+)*");
+    private static readonly Regex WordPattern = new(@"^\.?[@$#]?\w+(?:[.:][@$#]?\w+)*");
 
-    private static readonly Dictionary<DiagnosticCategory, string> _categoryNames = new()
+    private static readonly Dictionary<DiagnosticCategory, string> CategoryNames = new()
     {
         [DiagnosticCategory.Syntax] = "syntax & tags",
         [DiagnosticCategory.Filters] = "filters",
@@ -212,7 +212,7 @@ internal sealed class PrettyReportWriter : IReportWriter
         }
 
         var index = Math.Clamp(column - 1, 0, content.Length);
-        var word = index < content.Length ? _wordPattern.Match(content[index..]) : Match.Empty;
+        var word = index < content.Length ? WordPattern.Match(content[index..]) : Match.Empty;
         var markerLength = word.Success ? word.Length : 1;
 
         var before = content[..index].Replace("\t", new string(' ', TabWidth), StringComparison.Ordinal);
@@ -254,7 +254,7 @@ internal sealed class PrettyReportWriter : IReportWriter
             }
 
             var codes = string.Join(", ", group.Select(d => d.Code).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
-            _writer.WriteLine($"  {_categoryNames[group.Key],-22}{string.Join(", ", counts)}  {_palette.Dim(codes)}");
+            _writer.WriteLine($"  {CategoryNames[group.Key],-22}{string.Join(", ", counts)}  {_palette.Dim(codes)}");
         }
     }
 

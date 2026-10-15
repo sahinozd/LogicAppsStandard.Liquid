@@ -213,7 +213,7 @@ public sealed class LiquidTransformerTests
 
         // Assert
         Assert.That(result.RenderedText, Does.Contain("Liquid error"));
-        Assert.That(result.Diagnostics.Select(d => d.Code), Is.EqualTo(new[] { DiagnosticCodes.IncludeNotSupported }));
+        Assert.That(result.Diagnostics.Select(d => d.Code), Is.EqualTo([DiagnosticCodes.IncludeNotSupported]));
         Assert.That(result.Diagnostics[0].OutputLine, Is.EqualTo(1));
     }
 

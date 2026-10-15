@@ -18,7 +18,7 @@ namespace LogicApps.Liquid.Cli.Testing;
 /// </summary>
 internal sealed class TestRunner
 {
-    private static readonly UTF8Encoding _utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
+    private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
     private readonly ILiquidTransformer _transformer;
     private readonly string _baseDirectory;
@@ -105,7 +105,7 @@ internal sealed class TestRunner
         var actual = TransformCommand.FormatOutput(result, raw: false);
         if (_updateExpected)
         {
-            File.WriteAllText(expectedPath, actual, _utf8NoBom);
+            File.WriteAllText(expectedPath, actual, Utf8NoBom);
             return;
         }
 

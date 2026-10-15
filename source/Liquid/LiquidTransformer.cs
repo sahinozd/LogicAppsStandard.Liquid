@@ -32,10 +32,10 @@ namespace LogicApps.Liquid;
 /// </remarks>
 public sealed class LiquidTransformer : ILiquidTransformer
 {
-    private static readonly Regex _missingVariablePattern = new("Variable '(.+)' could not be found");
+    private static readonly Regex MissingVariablePattern = new("Variable '(.+)' could not be found");
 
     // DotLiquid configuration, the emulated time zone and the deviation observer are process-wide, so transforms run one at a time.
-    private static readonly Lock _processWide = new();
+    private static readonly Lock ProcessWide = new();
 
     private readonly LiquidTransformOptions _options;
     private readonly ILiquidLinter _linter;
@@ -82,11 +82,11 @@ public sealed class LiquidTransformer : ILiquidTransformer
         ArgumentNullException.ThrowIfNull(map);
 
         var diagnostics = new List<Diagnostic>();
-        lock (_processWide)
-        using (new CultureScope(_options.Culture))
-        {
-            _ = Parse(map, diagnostics);
-        }
+        lock (ProcessWide)
+            using (new CultureScope(_options.Culture))
+            {
+                _ = Parse(map, diagnostics);
+            }
 
         return DiagnosticMerger.Merge(diagnostics, map);
     }
@@ -103,7 +103,7 @@ public sealed class LiquidTransformer : ILiquidTransformer
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(input);
 
-        lock (_processWide)
+        lock (ProcessWide)
         {
             return TransformLocked(map, input, kind);
         }
@@ -329,12 +329,12 @@ public sealed class LiquidTransformer : ILiquidTransformer
 
     private static void AddMissingValue(string message, List<Diagnostic> diagnostics)
     {
-        var match = _missingVariablePattern.Match(message);
+        var match = MissingVariablePattern.Match(message);
         var variable = match.Success ? match.Groups[1].Value : message;
         var root = variable.Split('.', '[')[0];
 
         // forloop problems (wrong casing, forloop inside JSONArrayFor) are reported by the static checks, at the location.
-        if (root == "forloop" && diagnostics.Any(d => d.Code is DiagnosticCodes.ForloopProperty or DiagnosticCodes.ForloopInJsonArrayFor))
+        if (root == "forloop" && diagnostics.Any(d => d.Code is DiagnosticCodes.ForLoopProperty or DiagnosticCodes.ForLoopInJsonArrayFor))
         {
             return;
         }

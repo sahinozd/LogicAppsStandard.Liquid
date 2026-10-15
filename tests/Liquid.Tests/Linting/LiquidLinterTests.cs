@@ -226,7 +226,7 @@ public sealed class LiquidLinterTests
         var diagnostics = _linter.Lint("{{ content.totals.@currency }}");
 
         // Assert
-        Assert.That(diagnostics.Select(d => d.Code), Is.EqualTo(new[] { DiagnosticCodes.SpecialCharacterInPath }));
+        Assert.That(diagnostics.Select(d => d.Code), Is.EqualTo([DiagnosticCodes.SpecialCharacterInPath]));
     }
 
     [Test]
@@ -382,17 +382,17 @@ public sealed class LiquidLinterTests
     [TestCase("{% for x in content.a %}{% if forloop.Last == true %}x{% endif %}{% endfor %}", "forloop.last")]
     [TestCase("{% for x in content.a %}{{ forloop.Index }}{% endfor %}", "forloop.index")]
     [TestCase("{% for x in content.a %}{{ forloop.position }}{% endfor %}", "index0")]
-    public void Lint_Should_Report_Error_When_Forloop_Property_Does_Not_Exist(string map, string fix)
+    public void Lint_Should_Report_Error_When_ForLoop_Property_Does_Not_Exist(string map, string fix)
     {
         // Act
-        var diagnostic = LintAndFind(map, DiagnosticCodes.ForloopProperty);
+        var diagnostic = LintAndFind(map, DiagnosticCodes.ForLoopProperty);
 
         // Assert
         Assert.That(diagnostic.Fix, Does.Contain(fix));
     }
 
     [Test]
-    public void Lint_Should_Not_Report_Forloop_When_Properties_Are_Lowercase()
+    public void Lint_Should_Not_Report_ForLoop_When_Properties_Are_Lowercase()
     {
         // Act
         var diagnostics = _linter.Lint("{% for x in content.a %}{{ forloop.index }}{% unless forloop.last %},{% endunless %}{% endfor %}");
@@ -402,20 +402,20 @@ public sealed class LiquidLinterTests
     }
 
     [Test]
-    public void Lint_Should_Report_Error_When_Forloop_Is_Used_Inside_JsonArrayFor()
+    public void Lint_Should_Report_Error_When_ForLoop_Is_Used_Inside_JsonArrayFor()
     {
         // Act & Assert
-        LintAndFind("[{% JSONArrayFor x in content.a %}{{ forloop.index }}{% endJSONArrayFor %}]", DiagnosticCodes.ForloopInJsonArrayFor);
+        LintAndFind("[{% JSONArrayFor x in content.a %}{{ forloop.index }}{% endJSONArrayFor %}]", DiagnosticCodes.ForLoopInJsonArrayFor);
     }
 
     [Test]
-    public void Lint_Should_Not_Report_Forloop_When_For_Is_Nested_In_JsonArrayFor()
+    public void Lint_Should_Not_Report_ForLoop_When_For_Is_Nested_In_JsonArrayFor()
     {
         // Act
         var diagnostics = _linter.Lint("[{% JSONArrayFor x in content.a %}{% for y in x.b %}{{ forloop.index }}{% endfor %}{% endJSONArrayFor %}]");
 
         // Assert
-        Assert.That(diagnostics.Select(d => d.Code), Does.Not.Contain(DiagnosticCodes.ForloopInJsonArrayFor));
+        Assert.That(diagnostics.Select(d => d.Code), Does.Not.Contain(DiagnosticCodes.ForLoopInJsonArrayFor));
     }
 
     [TestCase("{% if content.n == 1 %}a{% else if content.n == 2 %}b{% endif %}")]

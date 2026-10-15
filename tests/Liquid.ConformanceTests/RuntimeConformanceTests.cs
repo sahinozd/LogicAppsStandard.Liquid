@@ -51,7 +51,7 @@ public sealed class RuntimeConformanceTests
 
             // The tool emulates the time zone of Logic Apps in Azure (UTC); the runtime runs in this process, so it gets the same.
             using var timeZone = new TimeZoneScope(TimeZoneInfo.Utc);
-            expected = runtime!.Transform(conformanceCase.Map, conformanceCase.Input, conformanceCase.Kind);
+            expected = runtime.Transform(conformanceCase.Map, conformanceCase.Input, conformanceCase.Kind);
         }
         finally
         {

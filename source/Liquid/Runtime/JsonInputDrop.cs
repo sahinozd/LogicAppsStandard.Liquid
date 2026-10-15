@@ -22,22 +22,10 @@ internal sealed class JsonInputDrop : IIndexable, ILiquidizable
         _token = token ?? throw new ArgumentNullException(nameof(token));
     }
 
-    public object? this[object key]
-    {
-        get
-        {
-            return ToTemplateValue(_token[key]);
-        }
-    }
+    public object? this[object key] => ToTemplateValue(_token[key]);
 
     /// <summary>True for a JSON object without properties. Used by the analysis only.</summary>
-    internal bool IsEmptyObject
-    {
-        get
-        {
-            return _token is JObject { Count: 0 };
-        }
-    }
+    internal bool IsEmptyObject => _token is JObject { Count: 0 };
 
     public bool ContainsKey(object key)
     {

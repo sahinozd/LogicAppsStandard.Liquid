@@ -46,7 +46,7 @@ public sealed class RuntimeLiquidEngine
         // The runtime reads action inputs with ResourceStack's JSON settings (dates are not parsed).
         _fromJson = resourceStack.GetType("Microsoft.WindowsAzure.ResourceStack.Common.Json.JsonExtensions", throwOnError: true)!
             .GetMethods()
-            .Single(m => m.Name == "FromJson" && m.IsGenericMethodDefinition && m.GetParameters().Length == 1)
+            .Single(m => m is { Name: "FromJson", IsGenericMethodDefinition: true } && m.GetParameters().Length == 1)
             .MakeGenericMethod(_jTokenType);
     }
 

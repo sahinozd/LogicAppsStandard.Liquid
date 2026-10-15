@@ -19,7 +19,7 @@ internal static class TransformCommand
 {
     private const string Operation = "Transform";
 
-    private static readonly UTF8Encoding _utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
+    private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
     public static Command Create()
     {
@@ -93,7 +93,7 @@ internal static class TransformCommand
                 Directory.CreateDirectory(directory);
             }
 
-            File.WriteAllText(outputPath, FormatOutput(result, raw), _utf8NoBom);
+            File.WriteAllText(outputPath, FormatOutput(result, raw), Utf8NoBom);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

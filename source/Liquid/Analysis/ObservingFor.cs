@@ -15,8 +15,7 @@ internal sealed class ObservingFor : For
     /// <inheritdoc />
     public override void Initialize(string tagName, string markup, List<string> tokens)
     {
-        string clean;
-        (clean, _line, _column, _collection) = ObservedLoopMarkup.Parse(markup);
+        (var clean, _line, _column, _collection) = ObservedLoopMarkup.Parse(markup);
         base.Initialize(tagName, clean, tokens);
     }
 

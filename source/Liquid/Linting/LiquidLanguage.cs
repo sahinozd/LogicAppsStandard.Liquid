@@ -12,8 +12,8 @@ namespace LogicApps.Liquid.Linting;
 /// </summary>
 public static class LiquidLanguage
 {
-    private static readonly Lazy<IReadOnlySet<string>> _filters = new(LoadFilterNames);
-    private static readonly Lazy<Dictionary<string, Type>> _tags = new(LoadTags);
+    private static readonly Lazy<IReadOnlySet<string>> InternalFilters = new(LoadFilterNames);
+    private static readonly Lazy<Dictionary<string, Type>> InternalTags = new(LoadTags);
 
     /// <summary>
     /// Tags that only exist inside a block and are handled by that block. DotLiquid's <c>if</c> accepts both <c>elsif</c> and <c>elseif</c>.
@@ -54,13 +54,7 @@ public static class LiquidLanguage
     /// <summary>
     /// All filter names, exactly as Logic Apps resolves them.
     /// </summary>
-    public static IReadOnlySet<string> Filters
-    {
-        get
-        {
-            return _filters.Value;
-        }
-    }
+    public static IReadOnlySet<string> Filters => InternalFilters.Value;
 
     /// <summary>
     /// Determines whether a tag is registered.
@@ -69,7 +63,7 @@ public static class LiquidLanguage
     /// <returns>True when Logic Apps knows the tag.</returns>
     public static bool IsTag(string name)
     {
-        return _tags.Value.ContainsKey(name);
+        return InternalTags.Value.ContainsKey(name);
     }
 
     /// <summary>
@@ -80,7 +74,7 @@ public static class LiquidLanguage
     public static bool IsBlockTag(string name)
     {
         // Include and Extends derive from Block, but override parsing and have no end tag.
-        return _tags.Value.TryGetValue(name, out var type) && type.IsSubclassOf(typeof(Block))
+        return InternalTags.Value.TryGetValue(name, out var type) && type.IsSubclassOf(typeof(Block))
             && !typeof(DotLiquid.Tags.Include).IsAssignableFrom(type) && !typeof(DotLiquid.Tags.Extends).IsAssignableFrom(type);
     }
 

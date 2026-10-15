@@ -11,7 +11,7 @@ namespace LogicApps.Liquid.Runtime;
 /// </summary>
 public static class RuntimeJson
 {
-    private static readonly JsonSerializer _serializer = JsonSerializer.Create(new JsonSerializerSettings
+    private static readonly JsonSerializer Serializer = JsonSerializer.Create(new JsonSerializerSettings
     {
         MaxDepth = RuntimeConstants.JsonMaxDepth,
         TypeNameHandling = TypeNameHandling.None,
@@ -30,7 +30,7 @@ public static class RuntimeJson
     {
         using var reader = new StringReader(json);
         using var jsonReader = new JsonTextReader(reader);
-        return _serializer.Deserialize<JToken>(jsonReader)
+        return Serializer.Deserialize<JToken>(jsonReader)
             ?? throw new JsonReaderException("The JSON document is empty.");
     }
 }

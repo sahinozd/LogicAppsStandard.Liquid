@@ -8,9 +8,6 @@ public static class RuntimeConstants
     /// <summary>The DotLiquid version used by the Logic Apps Standard runtime.</summary>
     public const string DotLiquidVersion = "2.0.361";
 
-    /// <summary>The Newtonsoft.Json version used by the Logic Apps Standard runtime.</summary>
-    public const string NewtonsoftJsonVersion = "13.0.3";
-
     /// <summary>The workflow extension bundle version this behaviour was verified against.</summary>
     public const string VerifiedExtensionBundleVersion = "1.170.91";
 

@@ -18,13 +18,7 @@ internal static class FilterObserver
     private static bool _jsonInput;
 
     /// <summary>True when the input of the current render is JSON (XML input has no numbers or booleans, only text).</summary>
-    public static bool JsonInput
-    {
-        get
-        {
-            return _jsonInput;
-        }
-    }
+    public static bool JsonInput => _jsonInput;
 
     /// <summary>
     /// Starts collecting observations on the current thread.

@@ -51,7 +51,7 @@ internal sealed class MsBuildReportWriter : IReportWriter
 
             _writer.WriteLine($"{location}: {label} {diagnostic.Code}: {diagnostic.Message}");
 
-            if (diagnostic.Source == DiagnosticSource.Output && diagnostic.Line is { } line && ReportFormatting.LineOf(context.RenderedText, line) is { } content)
+            if (diagnostic is { Source: DiagnosticSource.Output, Line: { } line } && ReportFormatting.LineOf(context.RenderedText, line) is { } content)
             {
                 _writer.WriteLine($"    {content}");
                 _writer.WriteLine($"    {new string(' ', Math.Max(0, Math.Min((diagnostic.Column ?? 1) - 1, content.Length)))}^");

@@ -33,11 +33,5 @@ internal sealed record TestCaseResult
     public TimeSpan Duration { get; }
 
     /// <summary>True when there are no failures.</summary>
-    public bool Passed
-    {
-        get
-        {
-            return Failures.Count == 0;
-        }
-    }
+    public bool Passed => Failures.Count == 0;
 }

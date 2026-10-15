@@ -77,7 +77,7 @@ internal static class ShopifyReference
             return input.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
         }
 
-        var parts = input.Split(separator, StringSplitOptions.None).ToList();
+        var parts = input.Split(separator).ToList();
         while (parts.Count > 0 && parts[^1].Length == 0)
         {
             parts.RemoveAt(parts.Count - 1);
@@ -113,7 +113,7 @@ internal static class ShopifyReference
     // The JSON object wrapper doesn't list its keys; Runtime.JsonInputDrop tells whether it has any.
     private static bool IsEmptyObject(DotLiquid.IIndexable value)
     {
-        return value is Runtime.JsonInputDrop drop && drop.IsEmptyObject;
+        return value is Runtime.JsonInputDrop { IsEmptyObject: true };
     }
 
     /// <summary>Ruby gsub with a string pattern replaces literal text.</summary>

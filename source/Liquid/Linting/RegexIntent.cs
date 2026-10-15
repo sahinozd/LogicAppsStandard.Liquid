@@ -9,7 +9,7 @@ namespace LogicApps.Liquid.Linting;
 /// </summary>
 public static class RegexIntent
 {
-    private static readonly Regex _specialCharacters = new(@"[.$^{\[(|)*+?]");
+    private static readonly Regex SpecialCharacters = new(@"[.$^{\[(|)*+?]");
 
     /// <summary>
     /// Determines whether the search text contains special regular expression characters that were probably meant literally.
@@ -23,6 +23,6 @@ public static class RegexIntent
             return false;
         }
 
-        return _specialCharacters.IsMatch(search);
+        return SpecialCharacters.IsMatch(search);
     }
 }

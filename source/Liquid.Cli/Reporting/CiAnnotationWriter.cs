@@ -29,22 +29,10 @@ internal sealed class CiAnnotationWriter
     }
 
     /// <summary>True when running in an Azure DevOps pipeline.</summary>
-    public static bool IsAzureDevOps
-    {
-        get
-        {
-            return string.Equals(Environment.GetEnvironmentVariable("TF_BUILD"), "True", StringComparison.OrdinalIgnoreCase);
-        }
-    }
+    public static bool IsAzureDevOps => string.Equals(Environment.GetEnvironmentVariable("TF_BUILD"), "True", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>True when running in a GitHub Actions workflow.</summary>
-    public static bool IsGitHubActions
-    {
-        get
-        {
-            return string.Equals(Environment.GetEnvironmentVariable("GITHUB_ACTIONS"), "true", StringComparison.OrdinalIgnoreCase);
-        }
-    }
+    public static bool IsGitHubActions => string.Equals(Environment.GetEnvironmentVariable("GITHUB_ACTIONS"), "true", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Writes the annotations for one finding.

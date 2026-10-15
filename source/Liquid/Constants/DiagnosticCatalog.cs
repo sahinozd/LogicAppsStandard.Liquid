@@ -11,7 +11,7 @@ public static class DiagnosticCatalog
     private const DiagnosticSeverity Error = DiagnosticSeverity.Error;
     private const DiagnosticSeverity Warning = DiagnosticSeverity.Warning;
 
-    private static readonly DiagnosticDescriptor[] _descriptors =
+    private static readonly DiagnosticDescriptor[] Descriptors =
     [
         // Syntax and tags
         Describe(DiagnosticCodes.TemplateSyntaxError, DiagnosticCategory.Syntax, Error, "The map cannot be parsed",
@@ -81,7 +81,7 @@ public static class DiagnosticCatalog
             "XML converted to JSON gives names such as '@code', '#text' and 'ns0:Item'. In a dot path DotLiquid drops the special character, so another property (or nothing) is read, without any error.",
             "{{ content.item.@code }}  → reads 'code'",
             "{{ content.item[\"@code\"] }}"),
-        Describe(DiagnosticCodes.ForloopProperty, DiagnosticCategory.ValuesAndPaths, Error, "forloop property with the wrong casing",
+        Describe(DiagnosticCodes.ForLoopProperty, DiagnosticCategory.ValuesAndPaths, Error, "forloop property with the wrong casing",
             "forloop properties are lowercase (index, index0, rindex, rindex0, first, last, length). 'forloop.Last' is always empty, so a check on it is never true. " +
             "Microsoft's own documentation sample uses 'forloop.Last == true', and only works because Logic Apps accepts the trailing comma it causes.",
             "{%- if forloop.Last == true -%}\"{{ device }}\"{%- else -%}\"{{ device }}\",{%- endif -%}",
@@ -104,7 +104,7 @@ public static class DiagnosticCatalog
             "DotLiquid ignores filters in a condition, so the condition only checks whether the value is set.",
             "{% if content.name | Size > 5 %}  → true for any name",
             "{% assign length = content.name | Size %}{% if length > 5 %}"),
-        Describe(DiagnosticCodes.ForloopInJsonArrayFor, DiagnosticCategory.Conditions, Error, "JSONArrayFor has no forloop",
+        Describe(DiagnosticCodes.ForLoopInJsonArrayFor, DiagnosticCategory.Conditions, Error, "JSONArrayFor has no forloop",
             "Only for and tablerow set forloop; inside JSONArrayFor, forloop.index and forloop.last are empty. In JSON output that gives invalid JSON or 'undefined'.",
             "[{% JSONArrayFor x in list %}{\"i\": {{ forloop.index }}}{% endJSONArrayFor %}]",
             "Use a for loop and write the commas yourself: '{% for x in list %}...{% unless forloop.last %},{% endunless %}{% endfor %}'."),
@@ -286,10 +286,10 @@ public static class DiagnosticCatalog
             "Print the value directly, or add '| Downcase'."),
     ];
 
-    private static readonly Dictionary<string, DiagnosticDescriptor> _byCode = _descriptors.ToDictionary(d => d.Code, StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, DiagnosticDescriptor> ByCode = Descriptors.ToDictionary(d => d.Code, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>All documented codes, in code order.</summary>
-    public static IReadOnlyList<DiagnosticDescriptor> All { get; } = [.. _descriptors.OrderBy(d => d.Code, StringComparer.Ordinal)];
+    public static IReadOnlyList<DiagnosticDescriptor> All { get; } = [.. Descriptors.OrderBy(d => d.Code, StringComparer.Ordinal)];
 
     /// <summary>
     /// Finds the documentation of a code.
@@ -299,7 +299,7 @@ public static class DiagnosticCatalog
     public static DiagnosticDescriptor? Find(string code)
     {
         ArgumentNullException.ThrowIfNull(code);
-        return _byCode.GetValueOrDefault(code.Trim());
+        return ByCode.GetValueOrDefault(code.Trim());
     }
 
     /// <summary>

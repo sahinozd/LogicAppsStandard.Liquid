@@ -4,7 +4,6 @@ using LogicApps.Liquid.Constants;
 using LogicApps.Liquid.Enums;
 using LogicApps.Liquid.Models;
 using LogicApps.Liquid.Runtime;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 
 namespace LogicApps.Liquid.Tests.Analysis;

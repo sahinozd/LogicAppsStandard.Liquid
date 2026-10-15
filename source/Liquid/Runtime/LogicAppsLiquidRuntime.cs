@@ -16,7 +16,7 @@ namespace LogicApps.Liquid.Runtime;
 /// </summary>
 public static class LogicAppsLiquidRuntime
 {
-    private static readonly Lock _syncRoot = new();
+    private static readonly Lock SyncRoot = new();
     private static bool _configured;
 
     /// <summary>
@@ -24,12 +24,15 @@ public static class LogicAppsLiquidRuntime
     /// </summary>
     public static void EnsureConfigured()
     {
-        if (_configured)
+        lock (SyncRoot)
         {
-            return;
+            if (_configured)
+            {
+                return;
+            }
         }
 
-        lock (_syncRoot)
+        lock (SyncRoot)
         {
             if (_configured)
             {

@@ -12,30 +12,30 @@ namespace LogicApps.Liquid.Linting;
 /// </summary>
 public sealed class LiquidLinter : ILiquidLinter
 {
-    private static readonly Regex _stringPattern = new(@"""[^""]*""|'[^']*'");
-    private static readonly Regex _filterPattern = new(@"\|\s*(\w+)");
+    private static readonly Regex StringPattern = new(@"""[^""]*""|'[^']*'");
+    private static readonly Regex FilterPattern = new(@"\|\s*(\w+)");
     // An identifier that is not part of a property path (no leading '.'), not a named argument (no trailing ':').
-    private static readonly Regex _identifierPattern = new(@"(?<![\w.\]\[@$#-])([A-Za-z_][\w-]*)(?![\w-]*\s*:)");
-    private static readonly Regex _assignPattern = new(@"^(?<name>[\w-]+)\s*=\s*(?<value>.*)$", RegexOptions.Singleline);
-    private static readonly Regex _firstWordPattern = new(@"^(\w+)");
-    private static readonly Regex _loopPattern = new(@"^(?<item>\w+)\s+in\s+(?<collection>\S+)");
-    private static readonly Regex _nilComparisonPattern = new(@"(==|!=|<>)\s*(nil|null)\b|\b(nil|null)\s*(==|!=|<>)");
-    private static readonly Regex _logicalOperatorPattern = new(@"\s+(?:and|or)\s+");
+    private static readonly Regex IdentifierPattern = new(@"(?<![\w.\]\[@$#-])([A-Za-z_][\w-]*)(?![\w-]*\s*:)");
+    private static readonly Regex AssignPattern = new(@"^(?<name>[\w-]+)\s*=\s*(?<value>.*)$", RegexOptions.Singleline);
+    private static readonly Regex FirstWordPattern = new(@"^(\w+)");
+    private static readonly Regex LoopPattern = new(@"^(?<item>\w+)\s+in\s+(?<collection>\S+)");
+    private static readonly Regex NilComparisonPattern = new(@"(==|!=|<>)\s*(nil|null)\b|\b(nil|null)\s*(==|!=|<>)");
+    private static readonly Regex LogicalOperatorPattern = new(@"\s+(?:and|or)\s+");
     // A bare path into the input, such as content.customer.email or content["a"].b, without any operator.
-    private static readonly Regex _inputPathPattern = new(@"^content(\.[\w-]+|\[[^\]]+\])+$");
-    private static readonly Regex _literalArgumentPattern = new(@"\|\s*(?<filter>Replace|ReplaceFirst|Remove|RemoveFirst|Date)\s*:\s*(?:""(?<double>[^""]*)""|'(?<single>[^']*)')");
-    private static readonly Regex _absConversionPattern = new(@"\|\s*Abs\s*\|\s*(?:Times|Plus|Minus|DividedBy|Modulo)\b");
-    private static readonly Regex _conversionIdiomPattern =new(@"\|\s*(?<idiom>(?:Plus|Minus)\s*:\s*0|(?:Times|DividedBy)\s*:\s*1)(?![\w.])");
-    private static readonly Regex _uniqAfterConcatPattern = new(@"\|\s*Concat\b[^|]*\|\s*Uniq\b", RegexOptions.IgnoreCase);
-    private static readonly Regex _specialPathSegmentPattern = new(@"(?<=[\w\]])\.(?<segment>[@$#][\w:-]*|[\w-]+:[\w:-]+)");
+    private static readonly Regex InputPathPattern = new(@"^content(\.[\w-]+|\[[^\]]+\])+$");
+    private static readonly Regex LiteralArgumentPattern = new(@"\|\s*(?<filter>Replace|ReplaceFirst|Remove|RemoveFirst|Date)\s*:\s*(?:""(?<double>[^""]*)""|'(?<single>[^']*)')");
+    private static readonly Regex AbsConversionPattern = new(@"\|\s*Abs\s*\|\s*(?:Times|Plus|Minus|DividedBy|Modulo)\b");
+    private static readonly Regex ConversionIdiomPattern =new(@"\|\s*(?<idiom>(?:Plus|Minus)\s*:\s*0|(?:Times|DividedBy)\s*:\s*1)(?![\w.])");
+    private static readonly Regex UniqAfterConcatPattern = new(@"\|\s*Concat\b[^|]*\|\s*Uniq\b", RegexOptions.IgnoreCase);
+    private static readonly Regex SpecialPathSegmentPattern = new(@"(?<=[\w\]])\.(?<segment>[@$#][\w:-]*|[\w-]+:[\w:-]+)");
     // An unquoted Z in a .NET date format is written literally.
-    private static readonly Regex _literalUtcMarkerPattern = new(@"(?<!')Z(?!')");
-    private static readonly Regex _forloopPropertyPattern = new(@"\bforloop\.(?<property>\w+)");
+    private static readonly Regex LiteralUtcMarkerPattern = new("(?<!')Z(?!')");
+    private static readonly Regex ForLoopPropertyPattern = new(@"\bforloop\.(?<property>\w+)");
     // A comparison or logical operator in the value of an assign, before the first filter.
-    private static readonly Regex _assignOperatorPattern = new(@"==|!=|<>|<=|>=|\s[<>]\s|\s(?:contains|and|or)\s");
+    private static readonly Regex AssignOperatorPattern = new(@"==|!=|<>|<=|>=|\s[<>]\s|\s(?:contains|and|or)\s");
 
-    private static readonly HashSet<string> _forloopProperties = new(StringComparer.Ordinal) { "name", "length", "index", "index0", "rindex", "rindex0", "first", "last" };
-    private static readonly HashSet<string> _loopTags = new(StringComparer.Ordinal) { "for", "tablerow", RuntimeConstants.JsonArrayForTagName };
+    private static readonly HashSet<string> ForLoopProperties = new(StringComparer.Ordinal) { "name", "length", "index", "index0", "rindex", "rindex0", "first", "last" };
+    private static readonly HashSet<string> LoopTags = new(StringComparer.Ordinal) { "for", "tablerow", RuntimeConstants.JsonArrayForTagName };
 
     private const string CommentHint = " DotLiquid also reads the tags inside a comment block.";
 
@@ -78,7 +78,7 @@ public sealed class LiquidLinter : ILiquidLinter
                 {
                     CheckFilters(token, token.Markup, position, diagnostics);
                     CheckPaths(token, token.Markup, position, diagnostics);
-                    CheckForloop(token, token.Markup, openBlocks, position, diagnostics);
+                    CheckForLoop(token, token.Markup, openBlocks, position, diagnostics);
                     usages.AddRange(VariableRoots(token.Markup).Select(n => (n, token)));
                 }
 
@@ -105,7 +105,7 @@ public sealed class LiquidLinter : ILiquidLinter
 
             if (!insideComment)
             {
-                CheckForloop(token, token.TagArguments, openBlocks, position, diagnostics);
+                CheckForLoop(token, token.TagArguments, openBlocks, position, diagnostics);
             }
 
             if (LiquidLanguage.IntermediateTags.Contains(name))
@@ -200,8 +200,8 @@ public sealed class LiquidLinter : ILiquidLinter
     internal static IEnumerable<string> VariableRoots(string expression)
     {
         var withoutStrings = RemoveStrings(expression);
-        var withoutFilterNames = _filterPattern.Replace(withoutStrings, "|");
-        foreach (Match match in _identifierPattern.Matches(withoutFilterNames))
+        var withoutFilterNames = FilterPattern.Replace(withoutStrings, "|");
+        foreach (Match match in IdentifierPattern.Matches(withoutFilterNames))
         {
             var name = match.Groups[1].Value;
             if (!LiquidLanguage.Keywords.Contains(name))
@@ -217,11 +217,11 @@ public sealed class LiquidLinter : ILiquidLinter
         switch (name)
         {
             case "assign":
-                var assignment = _assignPattern.Match(arguments);
+                var assignment = AssignPattern.Match(arguments);
                 if (assignment.Success)
                 {
                     assigned.Add(assignment.Groups["name"].Value);
-                    var operation = _assignOperatorPattern.Match(RemoveStrings(assignment.Groups["value"].Value).Split('|')[0]);
+                    var operation = AssignOperatorPattern.Match(RemoveStrings(assignment.Groups["value"].Value).Split('|')[0]);
                     if (operation.Success)
                     {
                         var symbol = operation.Value.Trim();
@@ -237,7 +237,7 @@ public sealed class LiquidLinter : ILiquidLinter
                 break;
 
             case "capture":
-                var target = _firstWordPattern.Match(arguments);
+                var target = FirstWordPattern.Match(arguments);
                 if (target.Success)
                 {
                     assigned.Add(target.Groups[1].Value);
@@ -246,7 +246,7 @@ public sealed class LiquidLinter : ILiquidLinter
                 break;
 
             case "for" or "tablerow" or RuntimeConstants.JsonArrayForTagName:
-                var loop = _loopPattern.Match(arguments);
+                var loop = LoopPattern.Match(arguments);
                 if (loop.Success)
                 {
                     assigned.Add(loop.Groups["item"].Value);
@@ -263,9 +263,6 @@ public sealed class LiquidLinter : ILiquidLinter
             case "include" or "extends":
                 diagnostics.Add(At(position, token, DiagnosticCodes.IncludeNotSupported, DiagnosticSeverity.Error, $"'{name}' is not supported in Logic Apps",
                     "Logic Apps does not configure a template file system, so the tag renders as a 'Liquid error' text instead of the content.", "Put the content in the map itself.", name));
-                break;
-
-            default:
                 break;
         }
     }
@@ -313,7 +310,7 @@ public sealed class LiquidLinter : ILiquidLinter
     {
         CheckFilterArguments(token, expression, position, diagnostics);
 
-        foreach (Match match in _filterPattern.Matches(RemoveStrings(expression)))
+        foreach (Match match in FilterPattern.Matches(RemoveStrings(expression)))
         {
             var filter = match.Groups[1].Value;
             if (LiquidLanguage.Filters.Contains(filter))
@@ -321,7 +318,7 @@ public sealed class LiquidLinter : ILiquidLinter
                 continue;
             }
 
-            if (filter.Equals("Concat", StringComparison.OrdinalIgnoreCase) && _uniqAfterConcatPattern.IsMatch(RemoveStrings(expression)))
+            if (filter.Equals("Concat", StringComparison.OrdinalIgnoreCase) && UniqAfterConcatPattern.IsMatch(RemoveStrings(expression)))
             {
                 diagnostics.Add(At(position, token, DiagnosticCodes.UnknownFilter, DiagnosticSeverity.Warning, $"Filter '{filter}' does not exist in Logic Apps",
                     $"It is skipped, so 'x | {filter}: x | Uniq' only works because Uniq wraps a single object in a list. Uniq also removes duplicate values.",
@@ -340,7 +337,7 @@ public sealed class LiquidLinter : ILiquidLinter
     // Literal filter arguments whose meaning differs from Shopify Liquid.
     private static void CheckFilterArguments(LiquidToken token, string expression, TextPosition position, List<Diagnostic> diagnostics)
     {
-        foreach (Match match in _conversionIdiomPattern.Matches(RemoveStrings(expression)))
+        foreach (Match match in ConversionIdiomPattern.Matches(RemoveStrings(expression)))
         {
             var idiom = match.Groups["idiom"].Value;
             diagnostics.Add(At(position, token, DiagnosticCodes.NumberConversionIdiom, DiagnosticSeverity.Warning, $"'| {idiom}' does not convert text to a number",
@@ -348,14 +345,14 @@ public sealed class LiquidLinter : ILiquidLinter
                 "Use '| Times: 1.0' for a decimal, or '| Times: 1.0 | Round' for a whole number.", idiom.Split(':')[0].Trim()));
         }
 
-        if (_absConversionPattern.IsMatch(RemoveStrings(expression)))
+        if (AbsConversionPattern.IsMatch(RemoveStrings(expression)))
         {
             diagnostics.Add(At(position, token, DiagnosticCodes.NumberConversionIdiom, DiagnosticSeverity.Warning, "'| Abs' is used to convert text to a number",
                 "It works, but it also drops the minus sign ('-1.5' becomes 1.5), returns 0 for text that is not a number, and reads the text with the host culture.",
                 "Use '| Times: 1.0' when the sign matters.", "Abs"));
         }
 
-        foreach (Match match in _literalArgumentPattern.Matches(expression))
+        foreach (Match match in LiteralArgumentPattern.Matches(expression))
         {
             var filter = match.Groups["filter"].Value;
             var argument = match.Groups["double"].Success ? match.Groups["double"].Value : match.Groups["single"].Value;
@@ -380,7 +377,7 @@ public sealed class LiquidLinter : ILiquidLinter
                 diagnostics.Add(At(position, token, DiagnosticCodes.DateStrftimeFormat, DiagnosticSeverity.Warning, $"Date: '{argument}' is a Ruby strftime format",
                     "DotLiquid uses .NET date formats, so '%Y' and similar are not replaced.", "Use .NET formats, for example 'yyyy-MM-dd' instead of '%Y-%m-%d'.", "Date"));
             }
-            else if (filter == "Date" && _literalUtcMarkerPattern.IsMatch(argument))
+            else if (filter == "Date" && LiteralUtcMarkerPattern.IsMatch(argument))
             {
                 diagnostics.Add(At(position, token, DiagnosticCodes.DateTimeZoneConversion, DiagnosticSeverity.Warning, $"Date: '{argument}' writes a literal 'Z'",
                     "DotLiquid converts a date with a time zone to the time zone of the Logic Apps host. The 'Z' (UTC) is only correct while the Logic App runs in UTC (no WEBSITE_TIME_ZONE app setting).",
@@ -392,7 +389,7 @@ public sealed class LiquidLinter : ILiquidLinter
     // XML converted to JSON gives names such as '@code', '#text' and 'ns0:Bal'. In a dot path DotLiquid drops the special character.
     private static void CheckPaths(LiquidToken token, string expression, TextPosition position, List<Diagnostic> diagnostics)
     {
-        foreach (Match match in _specialPathSegmentPattern.Matches(RemoveStrings(expression)))
+        foreach (Match match in SpecialPathSegmentPattern.Matches(RemoveStrings(expression)))
         {
             var segment = match.Groups["segment"].Value;
             var readsInstead = segment.Contains(':', StringComparison.Ordinal)
@@ -442,18 +439,18 @@ public sealed class LiquidLinter : ILiquidLinter
     }
 
     // forloop properties are lowercase, and JSONArrayFor has no forloop.
-    private static void CheckForloop(LiquidToken token, string expression, Stack<OpenBlock> openBlocks, TextPosition position, List<Diagnostic> diagnostics)
+    private static void CheckForLoop(LiquidToken token, string expression, Stack<OpenBlock> openBlocks, TextPosition position, List<Diagnostic> diagnostics)
     {
-        var matches = _forloopPropertyPattern.Matches(RemoveStrings(expression));
+        var matches = ForLoopPropertyPattern.Matches(RemoveStrings(expression));
         if (matches.Count == 0)
         {
             return;
         }
 
-        var loop = openBlocks.FirstOrDefault(b => _loopTags.Contains(b.Name));
+        var loop = openBlocks.FirstOrDefault(b => LoopTags.Contains(b.Name));
         if (loop?.Name == RuntimeConstants.JsonArrayForTagName)
         {
-            diagnostics.Add(At(position, token, DiagnosticCodes.ForloopInJsonArrayFor, DiagnosticSeverity.Error, "JSONArrayFor has no forloop",
+            diagnostics.Add(At(position, token, DiagnosticCodes.ForLoopInJsonArrayFor, DiagnosticSeverity.Error, "JSONArrayFor has no forloop",
                 $"'{matches[0].Value}' is always empty inside JSONArrayFor; only for and tablerow set forloop.",
                 "Use a for loop when you need forloop, and write the commas yourself: '{% unless forloop.last %},{% endunless %}'.", "forloop"));
             return;
@@ -462,17 +459,17 @@ public sealed class LiquidLinter : ILiquidLinter
         foreach (Match match in matches)
         {
             var property = match.Groups["property"].Value;
-            if (_forloopProperties.Contains(property))
+            if (ForLoopProperties.Contains(property))
             {
                 continue;
             }
 
-            var lower = _forloopProperties.FirstOrDefault(p => p.Equals(property, StringComparison.OrdinalIgnoreCase));
+            var lower = ForLoopProperties.FirstOrDefault(p => p.Equals(property, StringComparison.OrdinalIgnoreCase));
             diagnostics.Add(lower is not null
-                ? At(position, token, DiagnosticCodes.ForloopProperty, DiagnosticSeverity.Error, $"'forloop.{property}' is always empty",
+                ? At(position, token, DiagnosticCodes.ForLoopProperty, DiagnosticSeverity.Error, $"'forloop.{property}' is always empty",
                     $"forloop properties are lowercase in DotLiquid; '{property}' does not exist, so a check such as 'forloop.{property} == true' is never true.",
                     $"Use 'forloop.{lower}'.", match.Value)
-                : At(position, token, DiagnosticCodes.ForloopProperty, DiagnosticSeverity.Error, $"forloop has no property '{property}'",
+                : At(position, token, DiagnosticCodes.ForLoopProperty, DiagnosticSeverity.Error, $"forloop has no property '{property}'",
                     "It is always empty.", "Use index, index0, rindex, rindex0, first, last or length.", match.Value));
         }
     }
@@ -498,7 +495,7 @@ public sealed class LiquidLinter : ILiquidLinter
             }
         }
 
-        if (_nilComparisonPattern.IsMatch(condition))
+        if (NilComparisonPattern.IsMatch(condition))
         {
             diagnostics.Add(At(position, token, DiagnosticCodes.NilComparison, DiagnosticSeverity.Warning, "Comparison with nil misses JSON null values",
                 "In Logic Apps a JSON null value becomes an empty string, so it is not nil. Only a missing property is nil.",
@@ -507,7 +504,7 @@ public sealed class LiquidLinter : ILiquidLinter
 
         if (token.TagName is "if" or "unless" or "elsif" or "elseif")
         {
-            var truthinessCheck = _logicalOperatorPattern.Split(condition).Select(part => part.Trim()).FirstOrDefault(part => _inputPathPattern.IsMatch(part));
+            var truthinessCheck = LogicalOperatorPattern.Split(condition).Select(part => part.Trim()).FirstOrDefault(part => InputPathPattern.IsMatch(part));
             if (truthinessCheck is not null)
             {
                 diagnostics.Add(At(position, token, DiagnosticCodes.NullIsTruthy, DiagnosticSeverity.Warning, $"'{truthinessCheck}' is true for JSON null",
@@ -563,6 +560,6 @@ public sealed class LiquidLinter : ILiquidLinter
 
     private static string RemoveStrings(string expression)
     {
-        return _stringPattern.Replace(expression, "\"\"");
+        return StringPattern.Replace(expression, "\"\"");
     }
 }

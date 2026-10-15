@@ -12,7 +12,7 @@ public static class LiquidTokenizer
 {
     // Same as DotLiquid's Liquid.TemplateParser: the shortest match from an opening to a closing delimiter, on one line.
     // DotLiquid does not match across line breaks, so a tag that spans lines is a parse error in Logic Apps.
-    private static readonly Regex _tokenPattern = new(@"\{%.*?%\}|\{\{.*?\}\}", RegexOptions.CultureInvariant);
+    private static readonly Regex TokenPattern = new(@"\{%.*?%\}|\{\{.*?\}\}", RegexOptions.CultureInvariant);
 
     /// <summary>
     /// Splits a template into tokens.
@@ -25,7 +25,7 @@ public static class LiquidTokenizer
 
         var tokens = new List<LiquidToken>();
         var position = 0;
-        foreach (Match match in _tokenPattern.Matches(template))
+        foreach (Match match in TokenPattern.Matches(template))
         {
             if (match.Index > position)
             {

@@ -8,7 +8,7 @@ namespace LogicApps.Liquid.Models;
 /// </summary>
 public sealed record LiquidToken
 {
-    private static readonly Regex _tagNamePattern = new(@"^(\w+)", RegexOptions.CultureInvariant);
+    private static readonly Regex TagNamePattern = new(@"^(\w+)", RegexOptions.CultureInvariant);
 
     /// <summary>
     /// Creates a token.
@@ -47,7 +47,7 @@ public sealed record LiquidToken
                 return string.Empty;
             }
 
-            var match = _tagNamePattern.Match(Markup);
+            var match = TagNamePattern.Match(Markup);
             return match.Success ? match.Groups[1].Value : string.Empty;
         }
     }

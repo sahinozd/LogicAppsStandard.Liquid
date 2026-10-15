@@ -46,7 +46,7 @@ public sealed class LiquidTransformResult
     {
         get
         {
-            return !Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error);
+            return Diagnostics.All(d => d.Severity != DiagnosticSeverity.Error);
         }
     }
 

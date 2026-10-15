@@ -14,17 +14,17 @@ public sealed class ReportWriterTests
 {
     private const string Map = "Name: {{ content.name | upcase }}\n";
 
-    private static readonly Diagnostic _finding = new(DiagnosticCodes.FilterCasing, DiagnosticSeverity.Error, "Filter 'upcase' is skipped by Logic Apps", DiagnosticSource.Map, 1, 25)
+    private static readonly Diagnostic Finding = new(DiagnosticCodes.FilterCasing, DiagnosticSeverity.Error, "Filter 'upcase' is skipped by Logic Apps", DiagnosticSource.Map, 1, 25)
     {
         Explanation = "Logic Apps uses C# names for filters.",
         Fix = "Use 'Upcase'.",
     };
 
-    private static readonly DiagnosticContext _context = new("map.liquid") { MapText = Map };
+    private static readonly DiagnosticContext Context = new("map.liquid") { MapText = Map };
 
     private static string Write(IReportWriter writer, StringWriter output, params Diagnostic[] diagnostics)
     {
-        writer.WriteDiagnostics(diagnostics, _context, warningsAsErrors: false);
+        writer.WriteDiagnostics(diagnostics, Context, warningsAsErrors: false);
         writer.WriteSummary(new RunSummary { Operation = "Validation", Succeeded = false, Diagnostics = diagnostics, MapCount = 1 });
         return output.ToString();
     }
@@ -41,7 +41,7 @@ public sealed class ReportWriterTests
         using var output = new StringWriter();
 
         // Act
-        var text = Write(Pretty(output), output, _finding);
+        var text = Write(Pretty(output), output, Finding);
 
         // Assert
         Assert.Multiple(() =>
@@ -65,7 +65,7 @@ public sealed class ReportWriterTests
         using var output = new StringWriter();
 
         // Act
-        var text = Write(Pretty(output, OutputVerbosity.Detailed), output, _finding);
+        var text = Write(Pretty(output, OutputVerbosity.Detailed), output, Finding);
 
         // Assert
         Assert.That(text, Does.Contain("why    Logic Apps uses C# names for filters."));
@@ -78,7 +78,7 @@ public sealed class ReportWriterTests
         using var output = new StringWriter();
 
         // Act
-        var text = Write(Pretty(output, OutputVerbosity.Minimal), output, _finding);
+        var text = Write(Pretty(output, OutputVerbosity.Minimal), output, Finding);
 
         // Assert
         Assert.That(text, Does.Contain("LQ010  map.liquid:1:25  Filter 'upcase' is skipped by Logic Apps"));
@@ -106,7 +106,7 @@ public sealed class ReportWriterTests
         using var output = new StringWriter();
 
         // Act
-        var text = Write(Pretty(output, color: true), output, _finding);
+        var text = Write(Pretty(output, color: true), output, Finding);
 
         // Assert
         Assert.That(text, Does.Contain("\u001b[1;31m✗ error"));
@@ -120,7 +120,7 @@ public sealed class ReportWriterTests
         var writer = new MsBuildReportWriter(output, new CiAnnotationWriter(output, azureDevOps: false, gitHubActions: false));
 
         // Act
-        var text = Write(writer, output, _finding);
+        var text = Write(writer, output, Finding);
 
         // Assert
         Assert.That(text, Does.StartWith("map.liquid(1,25): error LQ010: Filter 'upcase' is skipped by Logic Apps. Logic Apps uses C# names for filters. Fix: Use 'Upcase'."));
@@ -134,7 +134,7 @@ public sealed class ReportWriterTests
         using var output = new StringWriter();
 
         // Act
-        var document = JObject.Parse(Write(new JsonReportWriter(output), output, _finding));
+        var document = JObject.Parse(Write(new JsonReportWriter(output), output, Finding));
 
         // Assert
         var finding = document["files"]![0]!["diagnostics"]![0]!;
@@ -157,7 +157,7 @@ public sealed class ReportWriterTests
         var annotations = new CiAnnotationWriter(output, azureDevOps: true, gitHubActions: true);
 
         // Act
-        annotations.Write(_finding, DiagnosticSeverity.Error, "Maps\\map.liquid");
+        annotations.Write(Finding, DiagnosticSeverity.Error, "Maps\\map.liquid");
 
         // Assert
         var text = output.ToString();

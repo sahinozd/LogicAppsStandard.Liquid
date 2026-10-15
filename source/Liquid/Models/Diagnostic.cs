@@ -62,13 +62,7 @@ public sealed record Diagnostic
     public int? OutputLine { get; init; }
 
     /// <summary>True for the codes LQ100 and up: DotLiquid behaves differently from Shopify Liquid for the observed values.</summary>
-    public bool IsShopifyDeviation
-    {
-        get
-        {
-            return Code.StartsWith("LQ1", StringComparison.Ordinal) && Code.Length == 5;
-        }
-    }
+    public bool IsShopifyDeviation => Code.StartsWith("LQ1", StringComparison.Ordinal) && Code.Length == 5;
 
     /// <summary>All parts in one text: title, values, explanation and fix.</summary>
     public string Message

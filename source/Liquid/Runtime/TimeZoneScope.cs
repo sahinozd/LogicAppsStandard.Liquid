@@ -15,8 +15,8 @@ public sealed class TimeZoneScope : IDisposable
 {
     private const BindingFlags InstanceMembers = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
-    private static readonly FieldInfo? _cachedDataField = typeof(TimeZoneInfo).GetField("s_cachedData", BindingFlags.NonPublic | BindingFlags.Static);
-    private static readonly Type? _offsetAndRuleType = typeof(TimeZoneInfo).Assembly.GetType("System.TimeZoneInfo+OffsetAndRule");
+    private static readonly FieldInfo? CachedDataField = typeof(TimeZoneInfo).GetField("s_cachedData", BindingFlags.NonPublic | BindingFlags.Static);
+    private static readonly Type? OffsetAndRuleType = typeof(TimeZoneInfo).Assembly.GetType("System.TimeZoneInfo+OffsetAndRule");
 
     /// <summary>
     /// Sets the local time zone until the scope is disposed.
@@ -28,10 +28,10 @@ public sealed class TimeZoneScope : IDisposable
         ArgumentNullException.ThrowIfNull(timeZone);
 
         TimeZoneInfo.ClearCachedData();
-        var cachedData = _cachedDataField?.GetValue(null);
+        var cachedData = CachedDataField?.GetValue(null);
         var localTimeZoneField = cachedData?.GetType().GetField("_localTimeZone", InstanceMembers);
         var oneYearField = cachedData?.GetType().GetField("_oneYearLocalFromUtc", InstanceMembers);
-        var offsetAndRuleConstructor = _offsetAndRuleType?.GetConstructors(InstanceMembers).FirstOrDefault(c => c.GetParameters().Length == 3);
+        var offsetAndRuleConstructor = OffsetAndRuleType?.GetConstructors(InstanceMembers).FirstOrDefault(c => c.GetParameters().Length == 3);
         if (cachedData is null || localTimeZoneField is null || oneYearField is null || offsetAndRuleConstructor is null)
         {
             throw new InvalidOperationException("The local time zone cannot be changed on this .NET runtime.");

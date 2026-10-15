@@ -22,13 +22,7 @@ internal sealed class XmlInputDrop : IIndexable, ILiquidizable, IEnumerable<XmlI
     }
 
     /// <summary>The local name of the element, used by <c>JSONArrayFor ... where Name</c>.</summary>
-    public string Name
-    {
-        get
-        {
-            return _element.Name.LocalName;
-        }
-    }
+    public string Name => _element.Name.LocalName;
 
     public object? this[object key]
     {
@@ -56,7 +50,7 @@ internal sealed class XmlInputDrop : IIndexable, ILiquidizable, IEnumerable<XmlI
         return _element.HasElements && (IsNamed(_element, name) || FindChild(name) is not null);
     }
 
-    public object? ToLiquid()
+    public object ToLiquid()
     {
         return ToTemplateValue(_element);
     }

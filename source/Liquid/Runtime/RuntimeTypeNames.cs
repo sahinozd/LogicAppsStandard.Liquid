@@ -8,8 +8,8 @@ namespace LogicApps.Liquid.Runtime;
 /// </summary>
 internal static class RuntimeTypeNames
 {
-    private static readonly string _jsonDrop = typeof(JsonInputDrop).FullName!;
-    private static readonly string _xmlDrop = typeof(XmlInputDrop).FullName!;
+    private static readonly string JsonDrop = typeof(JsonInputDrop).FullName!;
+    private static readonly string XmlDrop = typeof(XmlInputDrop).FullName!;
 
     /// <summary>
     /// Replaces the tool's type names with the runtime's.
@@ -20,7 +20,7 @@ internal static class RuntimeTypeNames
     {
         ArgumentNullException.ThrowIfNull(text);
 
-        return text.Replace(_jsonDrop, RuntimeConstants.JsonDropTypeName, StringComparison.Ordinal)
-            .Replace(_xmlDrop, RuntimeConstants.XmlDropTypeName, StringComparison.Ordinal);
+        return text.Replace(JsonDrop, RuntimeConstants.JsonDropTypeName, StringComparison.Ordinal)
+            .Replace(XmlDrop, RuntimeConstants.XmlDropTypeName, StringComparison.Ordinal);
     }
 }

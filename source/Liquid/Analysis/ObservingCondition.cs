@@ -85,7 +85,7 @@ internal sealed class ObservingCondition
         }
 
         Report(DiagnosticCodes.ContainsOnTextList, "contains on a list of text is always false",
-            $"[{string.Join(", ", items.Take(5).Select(item => ObservingFilters.Show(item)))}{(items.Count > 5 ? ", …" : string.Empty)}] contains {ObservingFilters.Show(text)} → false (Shopify Liquid: true)",
+            $"[{string.Join(", ", items.Take(5).Select(ObservingFilters.Show))}{(items.Count > 5 ? ", …" : string.Empty)}] contains {ObservingFilters.Show(text)} → false (Shopify Liquid: true)",
             "In DotLiquid, contains finds text inside a text and numbers in a list, but never text in a list.",
             "Loop over the list: '{% assign found = false %}{% for x in list %}{% if x == \"A\" %}{% assign found = true %}{% endif %}{% endfor %}'.");
     }

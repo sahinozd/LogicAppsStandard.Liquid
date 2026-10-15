@@ -69,7 +69,7 @@ public static class DiagnosticCodes
     public const string EmptySearchText = "LQ028";
 
     /// <summary>A <c>forloop</c> property with the wrong casing (<c>forloop.Last</c>) or that does not exist: it is always empty.</summary>
-    public const string ForloopProperty = "LQ029";
+    public const string ForLoopProperty = "LQ029";
 
     /// <summary>The JSON output contains <c>undefined</c> array items, typically from stray commas.</summary>
     public const string UndefinedInOutput = "LQ043";
@@ -84,7 +84,7 @@ public static class DiagnosticCodes
     public const string FilterInCondition = "LQ052";
 
     /// <summary><c>forloop</c> inside <c>JSONArrayFor</c>: that tag has no <c>forloop</c>, so it is always empty.</summary>
-    public const string ForloopInJsonArrayFor = "LQ053";
+    public const string ForLoopInJsonArrayFor = "LQ053";
 
     /// <summary>A comparison or <c>and</c>/<c>or</c> in <c>assign</c> is not evaluated: the variable gets the first value.</summary>
     public const string ComparisonInAssign = "LQ054";
