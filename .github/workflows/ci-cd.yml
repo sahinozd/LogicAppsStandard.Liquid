@@ -16,8 +16,13 @@
 #   - Push of a version tag (v1.2.3)  →  Scan + Test + Release
 #
 # Required GitHub repository settings (Settings → Secrets and variables → Actions):
-#   NUGET_API_KEY   - Your NuGet.org API key. Optional: without it the NuGet.org push is skipped,
-#                     the GitHub Packages push uses the built-in GITHUB_TOKEN.
+#   NUGET_USER      - Your nuget.org profile name (not your e-mail address). Optional: without it the
+#                     NuGet.org push is skipped. The GitHub Packages push uses the built-in GITHUB_TOKEN.
+#
+# NuGet.org uses Trusted Publishing: no API key is stored. During the run, GitHub issues a short-lived OIDC
+# token that nuget.org exchanges for an API key valid for one hour. One-time setup on nuget.org:
+#   your user name → Trusted Publishing → Add policy:
+#     Repository Owner: sahinozd   Repository: LogicAppsStandard.Liquid   Workflow File: ci-cd.yml   Environment: (empty)
 #
 # Versioning:
 #   Tags drive the version. Tag v1.2.3 gives packages and executables with version 1.2.3.
@@ -143,9 +148,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: [secret-scan, build-and-test]
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write      # create the GitHub Release
+      packages: write      # push to GitHub Packages
+      id-token: write      # request the OIDC token for NuGet Trusted Publishing
     env:
-      # Job-level, so the NuGet.org step can be skipped when the secret is not set.
-      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      # Job-level, so the NuGet.org steps can be skipped when the secret is not set.
+      NUGET_USER: ${{ secrets.NUGET_USER }}
 
     steps:
       - name: Checkout repository
@@ -223,9 +232,19 @@ jobs:
             --api-key "${{ secrets.GITHUB_TOKEN }}" \
             --skip-duplicate
 
-      # ── Publish to NuGet.org (only when the NUGET_API_KEY secret is set) ──
+      # ── Publish to NuGet.org with Trusted Publishing (only when the NUGET_USER secret is set) ──
+      # The temporary API key is valid for one hour, so it is requested right before the push.
+      - name: NuGet login (OIDC → temporary API key)
+        id: nuget-login
+        if: env.NUGET_USER != ''
+        uses: NuGet/login@v1
+        with:
+          user: ${{ env.NUGET_USER }}
+
       - name: Publish to NuGet.org
-        if: env.NUGET_API_KEY != ''
+        if: env.NUGET_USER != ''
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
           dotnet nuget push "./artifacts/nuget/*.nupkg" \
             --source https://api.nuget.org/v3/index.json \
