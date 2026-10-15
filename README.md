@@ -97,7 +97,7 @@ The Logic Apps Standard runtime (workflow extension bundle 1.170.91) runs Liquid
 
 - **Differences from Shopify Liquid need input:** they are found while rendering, so only for the values in your input.
 - **Static checks are heuristic:** they read the map text, and can miss unusual expressions.
-- **Not supported yet:** the output JSON schema of the Liquid action, UTF-16 XML files, and base64 `$content` envelopes as input files.
+- **Input files:** save XML input as UTF-8. When you copy an input from the run history that looks like `{"$content-type": ..., "$content": "PD94..."}`, decode the base64 first: the tool expects the plain XML.
 - **One transform at a time per process:** DotLiquid's configuration and the emulated time zone are process-wide.
 
 ## Releases
