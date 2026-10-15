@@ -30,14 +30,6 @@ public static class LogicAppsLiquidRuntime
             {
                 return;
             }
-        }
-
-        lock (SyncRoot)
-        {
-            if (_configured)
-            {
-                return;
-            }
 
             // The standard tags (if, for, assign, ...) are registered by the static constructor of DotLiquid.Liquid,
             // which normally runs on the first Template.Parse. Run it now, so the tag registry is complete.

@@ -2,6 +2,18 @@
 
 All notable changes to `la-liquid` and the `LogicApps.Liquid` library. The release pipeline publishes the section of a version as its release notes, so every version tag needs a section here.
 
+## [1.2.1] - 2026-10-15
+
+Maintenance release: no changes in what the tool reports.
+
+### Changed
+- The conformance tests run in `en-US` only, the culture of Logic Apps in Azure.
+- Documentation and examples use Central European Standard Time (`Europe/Berlin`) for the time zone, and describe culture differences as "a comma as decimal separator" or "a day-month culture".
+
+### Fixed
+- All ReSharper warnings: the filter methods that DotLiquid calls through reflection are marked as such, static readonly fields use PascalCase, and a broken reference in a documentation comment is fixed.
+- The one-time configuration of DotLiquid takes one lock instead of two.
+
 ## [1.2.0] - 2026-10-15
 
 New checks, found by comparing the Logic Apps engine with Shopify Liquid, Microsoft's documentation, DotLiquid's issue list and questions on Microsoft Q&A. Every finding is confirmed on the real Logic Apps engine by the conformance tests.

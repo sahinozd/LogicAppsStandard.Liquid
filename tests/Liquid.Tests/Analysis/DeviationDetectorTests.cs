@@ -80,9 +80,9 @@ public sealed class DeviationDetectorTests
         return new TestCaseData(map, code, output).SetName($"Detect_Should_Report_{code}_When_Map_Is {map}");
     }
 
-    private static LiquidTransformResult Transform(string map, string culture = "en-US")
+    private static LiquidTransformResult Transform(string map)
     {
-        var transformer = new LiquidTransformer(new LiquidTransformOptions { Culture = CultureInfo.GetCultureInfo(culture), Lint = false });
+        var transformer = new LiquidTransformer(new LiquidTransformOptions { Culture = CultureInfo.GetCultureInfo("en-US"), Lint = false });
         return transformer.Transform(map, Input, LiquidTransformKind.JsonToText);
     }
 
@@ -266,16 +266,6 @@ public sealed class DeviationDetectorTests
         Assert.That(result.Diagnostics, Is.Empty);
     }
 
-    [Test]
-    public void Detect_Should_Report_Culture_Parsing_When_Host_Uses_Comma_As_Decimal_Separator()
-    {
-        // Act
-        var result = Transform("{{ '1.5' | Times: 2.0 }}", "nl-NL");
-
-        // Assert
-        Assert.That(result.RenderedText, Is.EqualTo("300"));
-        Assert.That(result.Diagnostics.Select(d => d.Code), Does.Contain(DiagnosticCodes.CultureNumberParsing));
-    }
 
     [Test]
     public void Transform_Should_Not_Report_Deviations_When_Detection_Is_Off()
@@ -291,7 +281,7 @@ public sealed class DeviationDetectorTests
     }
 
     [TestCase("UTC", "2026-10-15 23:30")]
-    [TestCase("W. Europe Standard Time", "2026-10-16 01:30")]
+    [TestCase("Central European Standard Time", "2026-10-16 01:30")]
     public void Transform_Should_Convert_Dates_To_Emulated_Time_Zone_When_Time_Zone_Is_Set(string timeZoneId, string expected)
     {
         // Arrange

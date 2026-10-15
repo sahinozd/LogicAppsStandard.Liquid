@@ -7,7 +7,7 @@ namespace LogicApps.Liquid.Models;
 /// </summary>
 public sealed record DiagnosticDescriptor
 {
-    /// <summary>Stable identifier, see <see cref="DiagnosticCodes"/>.</summary>
+    /// <summary>Stable identifier, see <see cref="Constants.DiagnosticCodes"/>.</summary>
     public required string Code { get; init; }
 
     /// <summary>The group the code belongs to.</summary>

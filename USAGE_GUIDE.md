@@ -256,16 +256,16 @@ la-liquid explain         # all codes, per category
 
 | Option | Default | Example | When to use |
 |---|---|---|---|
-| `--culture` | `en-US` | `--culture nl-NL` | To see what a map does on a host with another culture. DotLiquid reads decimals and formats numbers and dates with it. |
-| `--time-zone` | `UTC` | `--time-zone "W. Europe Standard Time"` | When your Logic App sets the app setting `WEBSITE_TIME_ZONE`: use the same value. Windows and IANA names (`Europe/Amsterdam`) both work; `local` uses this machine's zone. |
+| `--culture` | `en-US` | `--culture de-DE` | To see what a map does on a host with another culture. DotLiquid reads decimals and formats numbers and dates with it. |
+| `--time-zone` | `UTC` | `--time-zone "Central European Standard Time"` | When your Logic App sets the app setting `WEBSITE_TIME_ZONE`: use the same value. Windows and IANA names (`Europe/Berlin`) both work; `local` uses this machine's zone. |
 | `--no-lint` | off | `--no-lint` | Skip the static checks, for example to see only what the engine reports. |
 | `--no-deviations` | off | `--no-deviations` | Skip the differences from Shopify Liquid (LQ100–LQ133). |
 
-Why the defaults matter: on a Dutch laptop without them, `{{ 1.5 | Times: 2 }}` gives `30`, and dates shift by one or two hours.
+Why the defaults matter: on a machine with a comma as decimal separator, `{{ 1.5 | Times: 2 }}` gives `30` without them, and outside UTC dates shift by one or more hours.
 
 ```powershell
-la-liquid validate --map ./Maps/order.liquid --input ./samples/order.json --time-zone "W. Europe Standard Time"
-la-liquid transform --map ./Maps/order.liquid --input ./samples/order.json --output ./out/order.json --culture nl-NL
+la-liquid validate --map ./Maps/order.liquid --input ./samples/order.json --time-zone "Central European Standard Time"
+la-liquid transform --map ./Maps/order.liquid --input ./samples/order.json --output ./out/order.json --culture de-DE
 la-liquid validate --map ./Maps/order.liquid --input ./samples/order.json --no-lint --no-deviations   # only DotLiquid's own errors
 ```
 
@@ -558,6 +558,6 @@ Transforms run one at a time per process, because DotLiquid's configuration is p
 | `JsonToJson` output is `null` | The map rendered nothing (LQ042). Logic Apps doesn't fail on this. |
 | An XML file is reported as invalid | Logic Apps reads the message as UTF-8 bytes, and so does the tool: a UTF-16 file, or `encoding="utf-16"` on UTF-8 content, is rejected. |
 | `?` instead of `✗`, or codes like `[31m` | The console doesn't understand UTF-8 or colors. Use `--no-color`, or `--format msbuild`. |
-| `error: unknown time zone` | Use a Windows name (`W. Europe Standard Time`) or an IANA name (`Europe/Amsterdam`). |
+| `error: unknown time zone` | Use a Windows name (`Central European Standard Time`) or an IANA name (`Europe/Berlin`). |
 | `la-liquid` not found after installing | Open a new terminal, or add `%USERPROFILE%\.dotnet\tools` (Windows) or `~/.dotnet/tools` to `PATH`. |
 | Logic Apps Consumption | Works the same: the same DotLiquid version, according to Microsoft. |

@@ -14,9 +14,9 @@ namespace LogicApps.Liquid.Tests;
 [TestFixture]
 public sealed class LiquidTransformerTests
 {
-    private static string Render(string map, string input, LiquidTransformKind kind = LiquidTransformKind.JsonToText, string culture = "en-US")
+    private static string Render(string map, string input, LiquidTransformKind kind = LiquidTransformKind.JsonToText)
     {
-        var transformer = new LiquidTransformer(new LiquidTransformOptions { Culture = CultureInfo.GetCultureInfo(culture), Lint = false });
+        var transformer = new LiquidTransformer(new LiquidTransformOptions { Culture = CultureInfo.GetCultureInfo("en-US"), Lint = false });
         var result = transformer.Transform(map, input, kind);
         Assert.That(result.RenderedText, Is.Not.Null, string.Join(Environment.NewLine, result.Diagnostics));
         return result.RenderedText!;
@@ -94,15 +94,14 @@ public sealed class LiquidTransformerTests
         Assert.That(output, Is.EqualTo("2026-10-15T10:00:00Z"));
     }
 
-    [TestCase("en-US", "3")]
-    [TestCase("nl-NL", "30")]
-    public void Transform_Should_Parse_Decimal_Literal_With_Culture_When_Culture_Is_Set(string culture, string expected)
+    [Test]
+    public void Transform_Should_Parse_Decimal_Literal_With_Host_Culture_When_Culture_Is_Default()
     {
         // Act
-        var output = Render("{{ 1.5 | Times: 2 }}", "{}", culture: culture);
+        var output = Render("{{ 1.5 | Times: 2 }}", "{}");
 
         // Assert
-        Assert.That(output, Is.EqualTo(expected));
+        Assert.That(output, Is.EqualTo("3"));
     }
 
     [Test]

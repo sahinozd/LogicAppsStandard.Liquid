@@ -34,7 +34,7 @@ The Liquid that Logic Apps runs is not the Liquid in the Shopify documentation, 
 | `{{ items \| where: "id", 1 }}` | filtered array | the whole array: there is no `where` filter |
 | `{% if value == nil %}` for JSON `null` | true | **false**: `null` becomes an empty string |
 | `{{ "2026" \| Plus: 1 }}` | `2027` | `20261`: text is joined |
-| `{{ 1.5 \| Times: 2 }}` on a Dutch machine | `3` | `30`: the decimal is read with the host culture |
+| `{{ 1.5 \| Times: 2 }}` on a host with a comma as decimal separator | `3` | `30`: the decimal is read with the host culture |
 
 `la-liquid` runs the same engine with the same settings as Logic Apps, and reports these problems with file, line, the actual values and a fix.
 
@@ -83,9 +83,9 @@ The Logic Apps Standard runtime (workflow extension bundle 1.170.91) runs Liquid
 - **Names:** filters in C# style (`Upcase`, `DividedBy`), tags lowercase (`if`, `for`), plus the `JSONArrayFor` tag.
 - **Input:** available as `content`. JSON `null` becomes `""` and dates stay text; XML lookups ignore namespaces and case.
 - **Errors:** render errors don't fail the action, but are written into the output as `Liquid error: ...`. For `*ToJson`, invalid JSON output fails the action.
-- **Host:** culture `en-US` and time zone UTC, unless the app setting `WEBSITE_TIME_ZONE` is set. The tool emulates both, so a run on a Dutch laptop gives the same result as Azure.
+- **Host:** culture `en-US` and time zone UTC, unless the app setting `WEBSITE_TIME_ZONE` is set. The tool emulates both, so a run on your machine gives the same result as Azure, whatever its regional settings.
 
-**Proven, not assumed:** the conformance tests (`tests/Liquid.ConformanceTests`) load the real Logic Apps Liquid engine from the extension bundle. They run every case through both engines, in `en-US` and `nl-NL`, and require identical results. The input handling and `JSONArrayFor` are written from a [specification of the observable behaviour](docs/runtime-behaviour.md), not from Microsoft's code.
+**Proven, not assumed:** the conformance tests (`tests/Liquid.ConformanceTests`) load the real Logic Apps Liquid engine from the extension bundle. They run every case through both engines and require identical results. The input handling and `JSONArrayFor` are written from a [specification of the observable behaviour](docs/runtime-behaviour.md), not from Microsoft's code.
 
 **Logic Apps Consumption** uses DotLiquid 2.0.361 with the same settings according to Microsoft, so the tool works the same way. The conformance tests can only prove this for Standard, because only that runtime can be installed locally.
 
