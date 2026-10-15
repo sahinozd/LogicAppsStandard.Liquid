@@ -174,6 +174,19 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Version: $VERSION"
 
+      # ── Release notes: the section '## [x.y.z]' of CHANGELOG.md. Checked before anything is published. ──
+      - name: Read release notes from CHANGELOG.md
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          awk -v heading="## [$VERSION]" '
+            /^## \[/ { if (found) exit; if (index($0, heading) == 1) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > ./changelog-section.md
+          if ! grep -q '[^[:space:]]' ./changelog-section.md; then
+            echo "::error file=CHANGELOG.md::CHANGELOG.md has no section '## [$VERSION]'. Add the release notes, merge them, and tag again."
+            exit 1
+          fi
+
       - name: Restore NuGet packages
         run: dotnet restore ${{ env.SOLUTION_PATH }}
 
@@ -252,33 +265,42 @@ jobs:
             --skip-duplicate
 
       # ── GitHub Release with everything attached ──
+      # The body: the CHANGELOG.md section, then downloads. GitHub appends the merged pull requests (generate_release_notes).
+      - name: Compose release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          {
+            cat ./changelog-section.md
+            echo
+            echo "## Downloads"
+            echo
+            echo "Usage: see the [usage guide](https://github.com/$REPOSITORY/blob/$TAG/USAGE_GUIDE.md)."
+            echo
+            echo "| Platform | Executable (no .NET needed) |"
+            echo "|---|---|"
+            echo "| Windows x64 / ARM64 | \`la-liquid-$VERSION-win-x64.zip\` / \`-win-arm64.zip\` |"
+            echo "| Linux x64 / ARM64 | \`la-liquid-$VERSION-linux-x64.tar.gz\` / \`-linux-arm64.tar.gz\` |"
+            echo "| macOS Intel / Apple silicon | \`la-liquid-$VERSION-osx-x64.tar.gz\` / \`-osx-arm64.tar.gz\` |"
+            echo
+            echo "Checksums are in \`SHA256SUMS.txt\`. With the .NET 10 SDK or runtime:"
+            echo
+            echo '```powershell'
+            echo "dotnet tool install --global LogicApps.Liquid.Cli --version $VERSION   # the CLI"
+            echo "dotnet add package LogicApps.Liquid --version $VERSION                 # the library"
+            echo '```'
+          } > ./release-notes.md
+          cat ./release-notes.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: "la-liquid ${{ steps.version.outputs.version }}"
           generate_release_notes: true
-          body: |
-            ## la-liquid ${{ steps.version.outputs.version }}
-
-            Validate and run Liquid maps exactly like the Azure Logic Apps Liquid action. See the [usage guide](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/USAGE_GUIDE.md).
-
-            ### Executables (no .NET needed)
-
-            | Platform | Download |
-            |---|---|
-            | Windows x64 / ARM64 | `la-liquid-${{ steps.version.outputs.version }}-win-x64.zip` / `-win-arm64.zip` |
-            | Linux x64 / ARM64 | `la-liquid-${{ steps.version.outputs.version }}-linux-x64.tar.gz` / `-linux-arm64.tar.gz` |
-            | macOS Intel / Apple silicon | `la-liquid-${{ steps.version.outputs.version }}-osx-x64.tar.gz` / `-osx-arm64.tar.gz` |
-
-            Checksums are in `SHA256SUMS.txt`.
-
-            ### NuGet (needs the .NET 10 SDK or runtime)
-
-            | Package | Install |
-            |---|---|
-            | `LogicApps.Liquid.Cli` (dotnet tool) | `dotnet tool install --global LogicApps.Liquid.Cli --version ${{ steps.version.outputs.version }}` |
-            | `LogicApps.Liquid` (library) | `dotnet add package LogicApps.Liquid --version ${{ steps.version.outputs.version }}` |
+          body_path: ./release-notes.md
           files: ./artifacts/release/*
           draft: false
           prerelease: ${{ contains(steps.version.outputs.version, '-') }}

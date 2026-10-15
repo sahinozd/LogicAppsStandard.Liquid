@@ -1,186 +1,167 @@
 # la-liquid usage guide
 
-This guide explains how to install `la-liquid` and use every part of it:
-- the three commands
-- the engine options
-- test suites
-- pipelines in Azure DevOps and GitHub Actions
-- VS Code and Visual Studio
-- the .NET library
+How to install and use `la-liquid`: every command and option with an example, test suites, pipelines, editors and the .NET library. For what the tool is and why, see the [README](README.md). For the meaning of each code, see the [diagnostics reference](docs/diagnostics.md).
 
-For background on *why* Logic Apps Liquid behaves the way it does, see the [README](README.md).
+## Contents
 
----
-
-## Table of contents
-
-1. [Installing](#1-installing)
-2. [Quick start](#2-quick-start)
-3. [Choosing the transform kind](#3-choosing-the-transform-kind)
-4. [validate: check maps](#4-validate-check-maps)
-5. [transform: run a map](#5-transform-run-a-map)
-6. [test: test suites with expected outputs](#6-test-test-suites-with-expected-outputs)
-7. [Engine options: culture, time zone and checks](#7-engine-options-culture-time-zone-and-checks)
-8. [Reading the findings](#8-reading-the-findings)
-9. [Azure DevOps](#9-azure-devops)
-10. [GitHub Actions](#10-github-actions)
-11. [VS Code and Visual Studio](#11-vs-code-and-visual-studio)
-12. [Using the .NET library](#12-using-the-net-library)
-13. [Recommended way of working](#13-recommended-way-of-working)
-14. [Troubleshooting](#14-troubleshooting)
+1. [Install](#1-install)
+2. [Commands at a glance](#2-commands-at-a-glance)
+3. [validate](#3-validate)
+4. [transform](#4-transform)
+5. [test](#5-test)
+6. [explain](#6-explain)
+7. [Engine options](#7-engine-options)
+8. [Output options](#8-output-options)
+9. [Reading the findings](#9-reading-the-findings)
+10. [Azure DevOps](#10-azure-devops)
+11. [GitHub Actions](#11-github-actions)
+12. [VS Code and Visual Studio](#12-vs-code-and-visual-studio)
+13. [The .NET library](#13-the-net-library)
+14. [Recommended way of working](#14-recommended-way-of-working)
+15. [Troubleshooting](#15-troubleshooting)
 
 ---
 
-## 1. Installing
+## 1. Install
 
-There are four ways to get `la-liquid`. Use whichever suits you.
-
-### As a .NET tool from NuGet (recommended)
-
-This needs the .NET 10 SDK or runtime.
+**.NET tool** (needs .NET 10):
 
 ```powershell
-dotnet tool install --global LogicApps.Liquid.Cli
+dotnet tool install --global LogicApps.Liquid.Cli                  # install
+dotnet tool update --global LogicApps.Liquid.Cli                   # update
+dotnet tool install --global LogicApps.Liquid.Cli --version 1.0.2  # a specific version
 la-liquid --version
 ```
 
-- **Update:** `dotnet tool update --global LogicApps.Liquid.Cli`
-- **Specific version:** add `--version 1.2.3`.
-- **Per repository:** run `dotnet new tool-manifest` once in the repository, then `dotnet tool install LogicApps.Liquid.Cli`. Everyone who clones the repository runs `dotnet tool restore` and gets the same version.
+To pin the version per repository: run `dotnet new tool-manifest` and `dotnet tool install LogicApps.Liquid.Cli` once. Everyone who clones the repository then runs `dotnet tool restore`.
 
-### As an executable from GitHub Releases (no .NET needed)
+**Executable** (no .NET needed): download the archive for your platform from [GitHub Releases](https://github.com/sahinozd/LogicAppsStandard.Liquid/releases), unpack it and run `la-liquid`. `SHA256SUMS.txt` has the checksums.
 
-1. Open the [Releases page](https://github.com/sahinozd/LogicAppsStandard.Liquid/releases).
-2. Download the archive for your platform: `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64` or `osx-arm64`.
-3. Unpack it and run `la-liquid` (`la-liquid.exe` on Windows). Optionally add the folder to your `PATH`.
-
-`SHA256SUMS.txt` in the release has the checksum of every file.
-
-### From GitHub Packages
-
-Every release is also published to GitHub Packages. GitHub Packages needs authentication, even for public packages: use a personal access token with the `read:packages` scope.
+**GitHub Packages:** needs a personal access token with `read:packages`, even for public packages.
 
 ```powershell
-dotnet nuget add source https://nuget.pkg.github.com/sahinozd/index.json --name sahinozd --username <your-github-user> --password <token>
+dotnet nuget add source https://nuget.pkg.github.com/sahinozd/index.json --name sahinozd --username <github-user> --password <token>
 dotnet tool install --global LogicApps.Liquid.Cli --add-source sahinozd
 ```
 
-### From source
+**From source:**
 
 ```powershell
 git clone https://github.com/sahinozd/LogicAppsStandard.Liquid.git
-cd LogicAppsStandard.Liquid
-dotnet run --project source/Liquid.Cli -- validate --map samples/maps
+dotnet run --project LogicAppsStandard.Liquid/source/Liquid.Cli -- validate --map LogicAppsStandard.Liquid/samples/maps
 ```
 
 ---
 
-## 2. Quick start
+## 2. Commands at a glance
+
+| Command | What it does | Writes files |
+|---|---|---|
+| `validate` | Checks a map or a folder of maps; with `--input` also renders the map | no |
+| `transform` | Checks and renders a map, and writes the output | the output, only without errors |
+| `test` | Runs a test suite with expected outputs | a JUnit report, if asked |
+| `explain` | Explains a diagnostic code | no |
+
+`la-liquid <command> --help` lists the options of a command.
+
+**Exit codes:** `0` everything passed, `1` errors or failed tests, `2` wrong option or unreadable file.
+
+---
+
+## 3. validate
+
+```text
+la-liquid validate --map <file|folder> [--input <file>] [--kind <kind>] [--warnings-as-errors] [engine options] [output options]
+```
+
+| Option | Example | Meaning |
+|---|---|---|
+| `-m`, `--map` | `--map ./Artifacts/Maps` | A map, or a folder: every `*.liquid` in it and its subfolders. Required. |
+| `-i`, `--input` | `--input ./samples/order.json` | Also render the map with this message and check the result. Only with a single map. |
+| `-k`, `--kind` | `--kind JsonToText` | The transform kind of your Liquid action. Inferred when omitted, see [Transform kinds](#transform-kinds). |
+| `--warnings-as-errors` | `--warnings-as-errors` | Warnings also fail the command (exit code 1). |
+
+**Without input**, only the static checks run: syntax, tags, filter names, paths and risky idioms. This is fast and needs no test data, so run it on every commit:
 
 ```powershell
-# 1. Check all maps in a folder (no input needed)
 la-liquid validate --map ./Artifacts/Maps
-
-# 2. Run one map with a sample message and write the output
-la-liquid transform --map ./Artifacts/Maps/orders.liquid --input ./samples/order.json --output ./out/order.json
-
-# 3. Run a test suite and write a report for your pipeline
-la-liquid test --suite ./tests/liquid-tests.json --junit ./TestResults/liquid.xml
+la-liquid validate --map ./Artifacts/Maps/order.liquid
 ```
 
-The exit code is `0` when everything passed, `1` when there are errors or failed tests, and `2` when a file or an option is wrong.
+**With input**, the map is rendered exactly as Logic Apps renders it. On top of the static checks you get render errors, missing values, invalid JSON output and the differences from Shopify Liquid for the actual values. Nothing is written.
 
----
+```powershell
+la-liquid validate --map ./Artifacts/Maps/order.liquid --input ./samples/order.json
+la-liquid validate --map ./Artifacts/Maps/order-to-csv.liquid --input ./samples/order.json --kind JsonToText
+la-liquid validate --map ./Artifacts/Maps --warnings-as-errors
+```
 
-## 3. Choosing the transform kind
+### Transform kinds
 
-The Liquid action in Logic Apps has four kinds. Choose the same kind as your action, because the kind decides how the input is read and the output is checked.
+Use the same kind as your Liquid action: it decides how the input is read and the output is checked.
 
 | Kind | Input | Output |
 |---|---|---|
-| `JsonToJson` | JSON, available as `content` | Parsed as JSON; invalid JSON fails the action |
-| `JsonToText` | JSON | Text, as is (CSV, XML, a mail body, ...) |
-| `XmlToJson` | XML, available as `content` | Parsed as JSON |
-| `XmlToText` | XML | Text, as is |
+| `JsonToJson` | JSON, as `content` | Parsed as JSON; invalid JSON fails the action |
+| `JsonToText` | JSON | Text as is (CSV, XML, a mail body) |
+| `XmlToJson` | XML, as `content` | Parsed as JSON |
+| `XmlToText` | XML | Text as is |
 
-When you don't pass `--kind`, it is inferred from the file names:
-- **Input:** an input file ending in `.xml` gives `XmlTo*`; any other gives `JsonTo*`.
-- **Output:** an output file ending in `.json` (or no output file) gives `*ToJson`; any other extension gives `*ToText`.
+Without `--kind`, the kind is inferred from the file names and printed after the map name (`JsonToJson (inferred)`):
+- **Input:** `.xml` gives `XmlTo*`, anything else `JsonTo*`.
+- **Output:** `.json`, or no output file (`validate`), gives `*ToJson`; any other extension gives `*ToText`.
 
-The chosen kind is printed (`Kind: JsonToJson (inferred)`). Set `--kind` explicitly when the file names don't match your action, for example JSON output saved as `.txt`.
-
----
-
-## 4. `validate`: check maps
-
-`validate` checks maps and never writes files.
-
-```powershell
-la-liquid validate --map <file-or-folder> [--input <file>] [--kind <kind>] [engine options] [output options] [--warnings-as-errors]
-```
-
-### Without input: static checks
-
-```powershell
-la-liquid validate --map ./Artifacts/Maps
-```
-
-Every `*.liquid` file in the folder and its subfolders is checked:
-- **Syntax and structure:**
-  - unknown or wrongly cased tags (`{% If %}`)
-  - unclosed blocks
-  - tags spread over several lines
-- **Filters:**
-  - wrongly cased filters (`upcase` instead of `Upcase`)
-  - filters that don't exist in Logic Apps (`where`, `json`, `concat`, ...)
-- **Paths and null values:**
-  - property paths that read a different property (`.@code`)
-  - `nil` and `null` pitfalls
-- **Risky idioms:** `Plus: 0`, `''''`, `Concat` + `Uniq` and others.
-
-This is the check to run on every commit.
-
-### With input: dry run
-
-```powershell
-la-liquid validate --map ./Artifacts/Maps/orders.liquid --input ./samples/order.json
-```
-
-The map is also rendered with the input, exactly as Logic Apps renders it. On top of the static checks, you get:
-- render errors, and missing input values
-- output that isn't valid JSON (for `*ToJson`)
-- **deviations from Shopify Liquid, based on the actual values**, for example `"2026" | Plus: 10` giving `202610`
-
-Nothing is written.
+So for a `*ToText` map, `validate --input` needs `--kind`.
 
 ---
 
-## 5. `transform`: run a map
-
-```powershell
-la-liquid transform --map <file> --input <file> --output <file> [--kind <kind>] [--raw] [engine options] [output options] [--warnings-as-errors]
-```
+## 4. transform
 
 ```text
-> la-liquid transform --map samples/maps/orders.to.shipment.request.liquid --input samples/inputs/orders.json --output out/shipment.json
-Kind: JsonToJson (inferred)
-Transform succeeded: 0 warning(s). Output written to 'out/shipment.json'.
+la-liquid transform --map <file> --input <file> --output <file> [--kind <kind>] [--raw] [--warnings-as-errors] [engine options] [output options]
 ```
 
-- **When it writes:** the output file is **only written when there are no errors**, or no warnings either with `--warnings-as-errors`. A file you find in the output folder therefore always comes from a clean run.
-- **JSON output** is written indented, the way the Logic Apps run history shows it. `--raw` writes the exact text DotLiquid produced, which is useful to see whitespace.
-- **Text output** is always written as is.
-- **Folders:** the output folder is created when needed.
+| Option | Example | Meaning |
+|---|---|---|
+| `-m`, `--map` | `--map ./Artifacts/Maps/order.liquid` | The map. Required. |
+| `-i`, `--input` | `--input ./samples/order.json` | The input message. Required. |
+| `-o`, `--output` | `--output ./out/order.json` | Where to write the output. The folder is created when needed. Required. |
+| `-k`, `--kind` | `--kind XmlToText` | The transform kind; inferred from the input and output file names when omitted. |
+| `--raw` | `--raw` | Write the exact text DotLiquid rendered. By default JSON output is written indented, as the Logic Apps run history shows it. |
+| `--warnings-as-errors` | `--warnings-as-errors` | Warnings also block the output. |
+
+The output is **only written when there are no errors**, so a file in the output folder always comes from a clean run.
+
+```powershell
+la-liquid transform --map ./Artifacts/Maps/order.liquid --input ./samples/order.json --output ./out/order.json
+la-liquid transform --map ./Artifacts/Maps/shipment-to-csv.liquid --input ./samples/shipment.xml --output ./out/shipment.csv
+la-liquid transform --map ./Artifacts/Maps/order.liquid --input ./samples/order.json --output ./out/order.txt --kind JsonToJson --raw
+```
 
 ---
 
-## 6. `test`: test suites with expected outputs
+## 5. test
 
-A test suite pins down what each map must produce for a given input. This is a regression test that you run in your pipeline.
+```text
+la-liquid test --suite <file> [--junit <file>] [--update-expected] [--warnings-as-errors] [engine options] [output options]
+```
+
+| Option | Example | Meaning |
+|---|---|---|
+| `-s`, `--suite` | `--suite ./tests/liquid-tests.json` | The suite file. Required. |
+| `--junit` | `--junit ./TestResults/liquid.xml` | Also write a JUnit report, for Azure DevOps and GitHub test reports. |
+| `--update-expected` | `--update-expected` | Write the actual outputs into the expected output files instead of comparing. |
+| `--warnings-as-errors` | `--warnings-as-errors` | Warnings also fail a test. Same as `warningsAsErrors` in the suite file. |
+
+```powershell
+la-liquid test --suite ./tests/liquid-tests.json
+la-liquid test --suite ./tests/liquid-tests.json --junit ./TestResults/liquid.xml
+la-liquid test --suite ./tests/liquid-tests.json --update-expected
+```
 
 ### The suite file
 
-Create `liquid-tests.json`. Paths are relative to the suite file.
+Paths are relative to the suite file.
 
 ```json
 {
@@ -190,16 +171,16 @@ Create `liquid-tests.json`. Paths are relative to the suite file.
   "tests": [
     {
       "name": "Order to shipment request",
-      "map": "../src/LogicApp/Artifacts/Maps/orders.to.shipment.liquid",
+      "map": "../src/LogicApp/Artifacts/Maps/order-to-shipment.liquid",
       "input": "inputs/order.json",
       "kind": "JsonToJson",
       "expectedOutput": "expected/shipment.json"
     },
     {
-      "name": "Legacy map with known Logic Apps behaviour",
+      "name": "Legacy map: known null checks and a Date in UTC",
       "map": "../src/LogicApp/Artifacts/Maps/legacy.liquid",
       "input": "inputs/legacy.json",
-      "expectedDiagnostics": [ "LQ021" ]
+      "expectedDiagnostics": [ "LQ021", "LQ118" ]
     }
   ]
 }
@@ -207,65 +188,116 @@ Create `liquid-tests.json`. Paths are relative to the suite file.
 
 | Field | Required | Meaning |
 |---|---|---|
-| `culture`, `timeZone` | no | Engine options for all tests (see [section 7](#7-engine-options-culture-time-zone-and-checks)). The command line overrides them. |
-| `warningsAsErrors` | no | Warnings fail the tests too. |
-| `name` | no | Shown in the report. Defaults to the map name. |
+| `culture`, `timeZone` | no | [Engine options](#7-engine-options) for all tests. `--culture` and `--time-zone` on the command line win. |
+| `warningsAsErrors` | no | Warnings fail the tests. |
+| `name` | no | Shown in the results. Defaults to the map's file name. |
 | `map`, `input` | yes | The map and the input message. |
 | `kind` | no | Inferred from the file names when omitted. |
-| `expectedOutput` | no | The output the map must produce. Without it, the test only checks that the map runs without errors. |
-| `expectedDiagnostics` | no | Codes that must be reported. Errors with these codes don't fail the test. Use this to accept known behaviour on purpose. |
+| `expectedOutput` | no | The output the map must produce. Without it, the test only checks for errors. |
+| `expectedDiagnostics` | no | Codes the map is known and allowed to report, see below. |
 
-**How outputs are compared:**
-- **JSON outputs** are compared as JSON: formatting and property order don't matter.
-- **Text outputs** are compared line by line, ignoring the difference between Windows and Unix line endings.
+A test **fails** when:
+- the output differs from `expectedOutput`. JSON is compared as JSON (formatting and property order don't matter); text is compared line by line (line endings don't matter).
+- there is an error, or a warning with `warningsAsErrors`, whose code is not in `expectedDiagnostics`.
+- a code in `expectedDiagnostics` is **not** reported.
+
+### expectedDiagnostics
+
+Use it to accept a known problem on purpose, for example in a legacy map you can't change yet, without switching the checks off:
+- **All other checks still run:** an error with any other code still fails the test, and so does a warning with `warningsAsErrors`.
+- **More than one code:** it is a list, `[ "LQ021", "LQ118" ]`.
+- **Every listed code must be reported:** if you fix the map and the finding disappears, the test fails, which reminds you to remove the code from the list.
+- **A code covers every finding with that code in the map,** not one specific line. A new LQ021 elsewhere in the same map is accepted too.
+- **List the code that is reported:** related findings are merged, so a `Minus` on text is LQ102, not LQ040. See [one problem, one finding](docs/diagnostics.md#one-problem-one-finding).
+
+There is no suppression comment inside maps; `expectedDiagnostics` is the only way to accept a finding.
 
 ### Creating and updating expected outputs
 
 ```powershell
 # First time, or after an intended change: write the actual outputs as expected outputs
-la-liquid test --suite tests/liquid-tests.json --update-expected
-
-# Review the changes (for example with git diff), commit them, and from then on:
-la-liquid test --suite tests/liquid-tests.json --junit TestResults/liquid.xml
+la-liquid test --suite ./tests/liquid-tests.json --update-expected
+# Review the changes with git diff, commit them, and from then on compare:
+la-liquid test --suite ./tests/liquid-tests.json
 ```
 
 ```text
-  PASS  Order to shipment request
-  FAIL  Legacy map with known Logic Apps behaviour
-        Output differs at line 3.
-          expected:   "amount": 12.5,
-          actual:     "amount": 125,
-Tests failed: 1 passed, 1 failed.
+✔ PASS  Order to shipment request (81 ms)
+✖ FAIL  Legacy map: known null checks and a Date in UTC (9 ms)
+         Output differs at line 3.
+           expected:   "amount": 12.5,
+           actual:     "amount": 125,
+
+✖ Tests failed  1 passed · 1 failed
 ```
 
-`--junit` writes a JUnit XML report that Azure DevOps (`PublishTestResults@2`) and GitHub test reporters show as test results.
+The findings of a passing test are expected, so they are only shown for failing tests. Use `--verbosity detailed` to see all of them.
 
-### Where to get good test inputs
-
-- **Real inputs:** take them from a Logic Apps run: open the run history, select the Liquid action and copy its input.
-- **Edge cases:** add inputs that trigger them, such as `null` values, a single item instead of an array, decimals with a comma, and dates with a time zone. The deviation checks only see the values in your inputs.
+**Good test inputs:** copy real inputs from the Logic Apps run history (select the Liquid action and copy its input). Add edge cases: `null` values, a single item instead of an array, decimals with a comma, and dates with a time zone. The differences from Shopify Liquid are only found for values that are in your inputs.
 
 ---
 
-## 7. Engine options: culture, time zone and checks
+## 6. explain
 
-All three commands accept these options:
+```text
+la-liquid explain [<code>] [--no-color]
+```
 
-| Option | Default | When to change it |
-|---|---|---|
-| `--culture` | `en-US` | DotLiquid reads decimal literals and text, and formats numbers and dates, with this culture. Keep `en-US` to match Azure. Use another culture only to see what a map does on such a host. |
-| `--time-zone` | `UTC` | Dates with a time zone are converted to this zone, and `now` uses it. Logic Apps in Azure runs in UTC, **unless** the app setting `WEBSITE_TIME_ZONE` is set: then use that value, for example `--time-zone "W. Europe Standard Time"`. Windows and IANA names both work. `local` uses your machine's time zone. |
-| `--no-lint` | off | Skip the static checks: you only see what the Logic Apps engine itself reports. |
-| `--no-deviations` | off | Skip the deviation checks (LQ100–LQ128). These render the map a second time to observe the actual filter values; the output is not affected. |
-| `--warnings-as-errors` | off | Warnings fail the command. A good setting for new maps in a pipeline. |
-
-Why this matters: on a Dutch laptop, DotLiquid computes `{{ 1.5 | Times: 2 }}` as `30` and shifts dates by one or two hours. The defaults make your local result equal to Azure.
+```powershell
+la-liquid explain LQ102   # what LQ102 means, an example and the fix
+la-liquid explain         # all codes, per category
+```
 
 ---
 
-## 8. Reading the findings
+## 7. Engine options
 
-By default the findings are grouped per map and sorted by line:
+`validate`, `transform` and `test` emulate the Logic Apps host. The defaults match Azure, so you rarely need these.
+
+| Option | Default | Example | When to use |
+|---|---|---|---|
+| `--culture` | `en-US` | `--culture nl-NL` | To see what a map does on a host with another culture. DotLiquid reads decimals and formats numbers and dates with it. |
+| `--time-zone` | `UTC` | `--time-zone "W. Europe Standard Time"` | When your Logic App sets the app setting `WEBSITE_TIME_ZONE`: use the same value. Windows and IANA names (`Europe/Amsterdam`) both work; `local` uses this machine's zone. |
+| `--no-lint` | off | `--no-lint` | Skip the static checks, for example to see only what the engine reports. |
+| `--no-deviations` | off | `--no-deviations` | Skip the differences from Shopify Liquid (LQ100–LQ128). |
+
+Why the defaults matter: on a Dutch laptop without them, `{{ 1.5 | Times: 2 }}` gives `30`, and dates shift by one or two hours.
+
+```powershell
+la-liquid validate --map ./Maps/order.liquid --input ./samples/order.json --time-zone "W. Europe Standard Time"
+la-liquid transform --map ./Maps/order.liquid --input ./samples/order.json --output ./out/order.json --culture nl-NL
+la-liquid validate --map ./Maps/order.liquid --input ./samples/order.json --no-lint --no-deviations   # only DotLiquid's own errors
+```
+
+---
+
+## 8. Output options
+
+| Option | Default | Example | Meaning |
+|---|---|---|---|
+| `--format` | `pretty` | `--format msbuild` | `pretty`: readable, for people. `msbuild`: one line per finding, for editors. `json`: one document, for scripts. |
+| `--verbosity` | `normal` | `--verbosity minimal` | For `pretty`: `minimal` gives one line per finding, `normal` adds the source line, values and fix, `detailed` also adds why. |
+| `--no-color` | off | `--no-color` | No colors. Also off when the environment variable `NO_COLOR` is set, or when the output goes to a file. |
+
+```powershell
+la-liquid validate --map ./Maps --verbosity minimal                                   # a quick overview of many maps
+la-liquid validate --map ./Maps/order.liquid --input ./samples/order.json --verbosity detailed
+la-liquid validate --map ./Maps --format msbuild                                      # file(line,col): error CODE: message
+la-liquid validate --map ./Maps --format json > findings.json                         # for a script
+la-liquid validate --map ./Maps --no-color > findings.txt
+```
+
+| Format | For |
+|---|---|
+| `pretty` | The terminal, and the Azure DevOps and GitHub Actions logs, which show the colors. |
+| `msbuild` | The Visual Studio error list and the VS Code `$msCompile` problem matcher: `<file>(<line>,<column>): <severity> <code>: <message>`. |
+| `json` | Scripts. Every finding with code, severity, category, title, values, explanation, fix, file, line and column. |
+
+In Azure DevOps and GitHub Actions, `pretty` and `msbuild` also log every finding as an annotation, so it shows on the run summary and, in GitHub, next to the changed line of a pull request. `json` doesn't, so its output stays valid JSON.
+
+---
+
+## 9. Reading the findings
 
 ```text
 invoice.liquid  JsonToText
@@ -290,56 +322,26 @@ invoice.liquid  JsonToText
   More about a code: la-liquid explain LQ102
 ```
 
-- **`✖ error`:** Logic Apps fails, or silently produces a wrong result. The command fails.
-- **`⚠ warning`:** probably a mistake. The command passes, unless you use `--warnings-as-errors`.
-- **`≠ differs`:** a filter behaves differently from Shopify Liquid for the values seen while rendering (LQ100–LQ128). A warning, unless it writes `Liquid error` into the output: then it is an error.
-- **`at`:** `file:line:column`. In VS Code and Windows Terminal you can Ctrl+click it to open the line.
-- **`values`:** the actual values. A filter in a loop is reported once, with up to three different values.
-- **`output`:** the line of the rendered output where the problem shows up.
-- **`fix`:** what to write instead.
-
-`--verbosity detailed` also shows **why** it happens, and `--verbosity minimal` shows one line per finding. For the full description with an example:
-
-```powershell
-la-liquid explain LQ102   # one code
-la-liquid explain         # all codes, per category
-```
-
-When two checks see the same problem, it is reported once, at the place in the map to fix. For example, `{{ "5" | Minus: 1 }}` writes `Liquid error: Parameter count mismatch.` into the output; you get one LQ102 error at the `Minus` call instead of a separate LQ040 for the output.
-
-### Output formats
-
-| `--format` | For |
+| Part | Meaning |
 |---|---|
-| `pretty` (default) | People: in the terminal, and in the Azure DevOps and GitHub Actions logs, which show the colors. |
-| `msbuild` | Editors: one line per finding, `<file>(<line>,<column>): <severity> <code>: <message>`, which the Visual Studio error list and the VS Code `$msCompile` problem matcher turn into clickable problems. |
-| `json` | Scripts: one JSON document with every finding (code, severity, category, title, values, explanation, fix, file, line, column). |
+| `✖ error` | Logic Apps fails, or silently produces a wrong result. The command fails. |
+| `⚠ warning` | Probably a mistake. The command passes, unless `--warnings-as-errors`. |
+| `≠ differs` | A filter gives another result than in Shopify Liquid for these values. An error when it writes `Liquid error` into the output. |
+| `at` | `file:line:column`. Ctrl+click opens it in VS Code and Windows Terminal. |
+| `values` | The actual values. A filter in a loop is reported once, with up to three values. |
+| `output` | The line of the rendered output where the problem shows. |
+| `fix` | What to write instead. |
+| summary | Totals, and the findings per category with their codes. |
 
-In a pipeline, `pretty` and `msbuild` also log every finding as an annotation (`##vso[task.logissue]` in Azure DevOps, `::error` / `::warning` in GitHub Actions). The pipeline hides these lines and shows the findings on the run summary; GitHub also shows them next to the changed lines of a pull request.
-
-Colors are on in a terminal and in pipelines. They are off with `--no-color`, when the environment variable `NO_COLOR` is set, or when the output is redirected to a file.
-
-### Common codes
-
-All codes are listed in the [README](README.md#diagnostics) and by `la-liquid explain`. The most common ones:
-
-| Code | Meaning | Usual fix |
-|---|---|---|
-| LQ010 / LQ011 | Filter is written in Shopify style or doesn't exist, and is silently skipped | Use the C# name (`Upcase`, `StripHtml`), or a `for` loop with an `if` |
-| LQ021 / LQ024 | `nil` check or truthiness check on input: JSON `null` is `""` in Logic Apps | Also compare with `""` |
-| LQ041 | Output isn't valid JSON | Escape text values: `\| Replace: '\\', '\\' \| Replace: '"', '\"'` |
-| LQ100–LQ103 | Arithmetic on text | Convert first: `\| Times: 1.0` (`\| Round` for whole numbers) |
-| LQ126 | Loop over a single object (XML with one element) | `{% assign items = x \| Compact %}` |
-
-There is no suppression comment. To accept known behaviour on purpose, list the code in `expectedDiagnostics` of a test.
+The codes are explained in the [diagnostics reference](docs/diagnostics.md) and by `la-liquid explain`.
 
 ---
 
-## 9. Azure DevOps
+## 10. Azure DevOps
 
-### Option A: the step template, straight from GitHub
+### The step template, straight from GitHub
 
-This needs a GitHub service connection in your Azure DevOps project (*Project settings → Service connections → GitHub*).
+Needs a GitHub service connection (*Project settings → Service connections → GitHub*).
 
 ```yaml
 resources:
@@ -348,31 +350,28 @@ resources:
       type: github
       endpoint: my-github-connection          # your GitHub service connection
       name: sahinozd/LogicAppsStandard.Liquid
-      ref: refs/tags/v1.0.0                   # pin a release
+      ref: refs/tags/v1.0.2                   # pin a release
 
 steps:
   - template: pipelines/templates/steps/validate-liquid-maps.yml@laliquid
     parameters:
       mapsFolder: '$(Build.SourcesDirectory)/src/LogicApp/Artifacts/Maps'
-      testSuite: '$(Build.SourcesDirectory)/tests/liquid-tests.json'   # optional
-      warningsAsErrors: false
-      timeZone: UTC            # or the value of WEBSITE_TIME_ZONE
-      toolVersion: ''          # empty = latest
+      testSuite: '$(Build.SourcesDirectory)/tests/liquid-tests.json'
 ```
 
-The template:
-1. installs .NET and `la-liquid`
-2. validates all maps
-3. runs the suite
-4. publishes the test results
+| Parameter | Default | Meaning |
+|---|---|---|
+| `mapsFolder` | required | The folder with maps to validate |
+| `testSuite` | – | A test suite to run; its results are published to the *Tests* tab |
+| `warningsAsErrors` | `false` | Warnings fail the build |
+| `culture`, `timeZone` | `en-US`, `UTC` | [Engine options](#7-engine-options) |
+| `toolVersion` | latest | Version of `LogicApps.Liquid.Cli` |
+| `toolFeed` | nuget.org | Another feed, for example an Azure Artifacts feed |
+| `dotnetVersion` | `10.0.x` | .NET SDK used to run the tool |
 
-Findings appear on the run summary with file and line; test results appear on the *Tests* tab.
+You can also copy [the template](pipelines/templates/steps/validate-liquid-maps.yml) into your repository and use `- template: templates/steps/validate-liquid-maps.yml`.
 
-### Option B: copy the template
-
-Copy [pipelines/templates/steps/validate-liquid-maps.yml](pipelines/templates/steps/validate-liquid-maps.yml) into your repository, and use `- template: templates/steps/validate-liquid-maps.yml`.
-
-### Option C: inline steps
+### Inline steps
 
 ```yaml
 steps:
@@ -399,17 +398,13 @@ steps:
       testResultsFiles: $(Agent.TempDirectory)/liquid.xml
 ```
 
-In Azure DevOps (`TF_BUILD` is set), every finding is also logged as a warning or error on the run summary.
-
-### Without access to nuget.org
-
-Download the `.nupkg` files from the GitHub release, push them to your Azure Artifacts feed, and pass `toolFeed: 'https://pkgs.dev.azure.com/<org>/_packaging/<feed>/nuget/v3/index.json'` to the template. Or put the release executable in your repository or agent image, and call it directly.
+**Without access to nuget.org:** push the `.nupkg` files from the GitHub release to your Azure Artifacts feed and pass it as `toolFeed`. Or put the release executable in your repository or agent image.
 
 ---
 
-## 10. GitHub Actions
+## 11. GitHub Actions
 
-### Option A: the action
+### The action
 
 ```yaml
 jobs:
@@ -420,12 +415,10 @@ jobs:
 
       - name: Validate Liquid maps
         id: liquid
-        uses: sahinozd/LogicAppsStandard.Liquid@v1.0.0
+        uses: sahinozd/LogicAppsStandard.Liquid@v1.0.2
         with:
           maps: src/LogicApp/Artifacts/Maps
-          test-suite: tests/liquid-tests.json      # optional
-          warnings-as-errors: false
-          time-zone: UTC                           # or the value of WEBSITE_TIME_ZONE
+          test-suite: tests/liquid-tests.json
 
       - name: Publish Liquid test results
         if: always() && steps.liquid.outputs.junit-report != ''
@@ -439,16 +432,16 @@ jobs:
 | Input | Default | Meaning |
 |---|---|---|
 | `maps` | required | A map or a folder with maps |
-| `test-suite` | – | Optional test suite file |
-| `version` | latest | Version of `LogicApps.Liquid.Cli` |
-| `culture`, `time-zone` | `en-US`, `UTC` | Engine options |
+| `test-suite` | – | A test suite to run |
 | `warnings-as-errors` | `false` | Warnings fail the step |
+| `culture`, `time-zone` | `en-US`, `UTC` | [Engine options](#7-engine-options) |
+| `version` | latest | Version of `LogicApps.Liquid.Cli` |
 | `nuget-source` | nuget.org | Another NuGet source, for example GitHub Packages |
 | `dotnet-version` | `10.x` | .NET SDK used to run the tool |
 
-The output `junit-report` holds the path of the JUnit report.
+The output `junit-report` is the path of the JUnit report.
 
-### Option B: inline steps
+### Inline steps
 
 ```yaml
       - uses: actions/setup-dotnet@v5
@@ -461,41 +454,25 @@ The output `junit-report` holds the path of the JUnit report.
       - run: la-liquid test --suite tests/liquid-tests.json --junit TestResults/liquid.xml
 ```
 
-In GitHub Actions (`GITHUB_ACTIONS` is set), every finding is also written as an annotation. It shows on the changed line in pull requests and on the run summary.
-
 ---
 
-## 11. VS Code and Visual Studio
+## 12. VS Code and Visual Studio
 
-### VS Code
-
-Open the repository folder. *Terminal → Run Task* offers:
+**VS Code:** this repository has tasks (*Terminal → Run Task*):
 
 | Task | What it does |
 |---|---|
-| `la-liquid: validate current map` | Validates the open `.liquid` file. Findings appear in the **Problems** panel and link to the line. |
-| `la-liquid: transform current map` | Asks for an input and an output file, and runs the open map. |
-| `la-liquid: test samples` | Runs the sample suite. |
-| `build`, `test` | Build and test the solution. |
+| `la-liquid: validate current map` | Validates the open map; findings appear in the **Problems** panel |
+| `la-liquid: transform current map` | Asks for an input and output file, and runs the open map |
+| `la-liquid: test samples` | Runs the sample suite |
 
-To use the tasks in your own integration repository, copy `.vscode/tasks.json` and replace `dotnet run --project ...` with `la-liquid` (the installed tool). The tasks pass `--format msbuild`, which the `$msCompile` problem matcher understands.
+To use them in your own repository, copy [.vscode/tasks.json](.vscode/tasks.json) and replace `dotnet run --project ...` with `la-liquid`. Keep `--format msbuild`: the Problems panel needs it.
 
-Two launch configurations (`F5`) let you debug the tool itself.
-
-### Visual Studio
-
-Open `LogicAppsStandard.Liquid.slnx`. To validate maps from Visual Studio in your own solution, add an external tool (*Tools → External Tools*):
-- **Command:** `la-liquid`
-- **Arguments:** `validate --map $(ItemPath) --format msbuild`
-- **Use Output window:** on
-
-Double-clicking a finding in the Output window opens the line.
+**Visual Studio:** add an external tool (*Tools → External Tools*) with command `la-liquid`, arguments `validate --map $(ItemPath) --format msbuild`, and *Use Output window* on. Double-click a finding in the Output window to open the line.
 
 ---
 
-## 12. Using the .NET library
-
-The engine is also available as the NuGet package `LogicApps.Liquid`. You can use it in your own tools or unit tests, for example next to [LogicAppsStandard.Testing](https://github.com/sahinozd/LogicAppsStandard.Testing).
+## 13. The .NET library
 
 ```powershell
 dotnet add package LogicApps.Liquid
@@ -504,6 +481,7 @@ dotnet add package LogicApps.Liquid
 ```csharp
 using System.Globalization;
 using LogicApps.Liquid;
+using LogicApps.Liquid.Constants;
 using LogicApps.Liquid.Enums;
 using LogicApps.Liquid.Models;
 
@@ -512,50 +490,41 @@ var transformer = new LiquidTransformer(new LiquidTransformOptions
     Culture = CultureInfo.GetCultureInfo("en-US"),   // default
     TimeZone = TimeZoneInfo.Utc,                      // default; null = this machine's time zone
     Lint = true,                                      // static checks
-    DetectDeviations = true,                          // deviations from Shopify Liquid
+    DetectDeviations = true,                          // differences from Shopify Liquid
 });
 
-// Only check a map
-IReadOnlyList<Diagnostic> findings = transformer.Validate(File.ReadAllText("orders.liquid"));
+// Check a map without input
+var findings = transformer.Validate(File.ReadAllText("order.liquid"));
 
 // Run a map
-LiquidTransformResult result = transformer.Transform(
-    File.ReadAllText("orders.liquid"),
-    File.ReadAllText("order.json"),
-    LiquidTransformKind.JsonToJson);
-
+var result = transformer.Transform(File.ReadAllText("order.liquid"), File.ReadAllText("order.json"), LiquidTransformKind.JsonToJson);
 foreach (var finding in result.Diagnostics)
 {
-    Console.WriteLine($"{finding.Severity} {finding.Code} at {finding.Line},{finding.Column}: {finding.Message}");
+    Console.WriteLine($"{finding.Severity} {finding.Code} line {finding.Line}: {finding.Title}. Fix: {finding.Fix}");
 }
 
-if (result.Succeeded)
-{
-    Console.WriteLine(result.Output);          // JToken: parsed JSON, or a string for *ToText
-}
+Console.WriteLine(result.Output);   // JToken: parsed JSON for *ToJson, a string for *ToText
+
+// Documentation of a code
+Console.WriteLine(DiagnosticCatalog.Find("LQ102")?.Description);
 ```
 
 | Member | Meaning |
 |---|---|
-| `Transform(map, input, kind)` | Validates and runs the map. |
-| `Validate(map)` | Checks the map without input. |
-| `result.Succeeded` | No errors. |
-| `result.HasFailures(warningsAsErrors)` | Errors, or warnings when you pass `true`. |
-| `result.RenderedText` | The exact text DotLiquid rendered. |
-| `result.Output` | The action output as Logic Apps returns it. |
-| `result.Diagnostics` | All findings. Use `DiagnosticCodes` constants to check for specific codes. |
+| `Transform(map, input, kind)` / `Validate(map)` | Run and check a map, or only check it |
+| `result.Succeeded` / `result.HasFailures(warningsAsErrors)` | No errors / errors (or warnings) |
+| `result.RenderedText` / `result.Output` | The exact rendered text / the action output as Logic Apps returns it |
+| `result.Diagnostics` | The findings: `Code`, `Severity`, `Title`, `Values`, `Explanation`, `Fix`, `Line`, `Column`, `OutputLine`, and `Message` with everything in one text |
+| `DiagnosticCodes`, `DiagnosticCatalog` | The codes as constants, and their documentation |
 
-### Example: a unit test for a map (NUnit)
+**A unit test for a map (NUnit):**
 
 ```csharp
 [Test]
 public void Order_map_Should_produce_shipment_request()
 {
-    // Arrange
-    var transformer = new LiquidTransformer();
-
     // Act
-    var result = transformer.Transform(File.ReadAllText("Maps/orders.liquid"), File.ReadAllText("Inputs/order.json"), LiquidTransformKind.JsonToJson);
+    var result = new LiquidTransformer().Transform(File.ReadAllText("Maps/order.liquid"), File.ReadAllText("Inputs/order.json"), LiquidTransformKind.JsonToJson);
 
     // Assert
     Assert.That(result.HasFailures(warningsAsErrors: true), Is.False, string.Join(Environment.NewLine, result.Diagnostics));
@@ -563,34 +532,30 @@ public void Order_map_Should_produce_shipment_request()
 }
 ```
 
-DotLiquid's configuration and the emulated time zone are process-wide, so the library runs transforms one at a time. This is safe with parallel test runners; they just wait for each other.
+Transforms run one at a time per process, because DotLiquid's configuration is process-wide. Parallel test runners are safe; they wait for each other.
 
 ---
 
-## 13. Recommended way of working
+## 14. Recommended way of working
 
-1. **While writing a map:** run the VS Code task *validate current map* on save, and *transform* with a sample input.
-2. **Before committing:** run `la-liquid validate --map <maps folder>`.
-3. **In the build pipeline:**
-   - validate all maps on every PR
-   - run the test suite with real inputs, and fail the build on errors
-   - for new projects, use `--warnings-as-errors`
-4. **When a map changes on purpose:** run `test --update-expected`, review the diff of the expected outputs, and commit the map and outputs together.
-5. **When a new Logic Apps runtime appears:** the repository's conformance tests show whether the engine changed. Pin a tool version in pipelines (`toolVersion`, `version`), and update on purpose.
+1. **While writing a map:** run *validate current map* in VS Code, and *transform* with a sample input.
+2. **On every pull request:** `validate` all maps, and run the test suite with real inputs. Use `--warnings-as-errors` for new projects.
+3. **When a map changes on purpose:** run `test --update-expected`, review the diff, and commit the map and the expected outputs together.
+4. **Pin the tool version** in pipelines (`toolVersion`, `version`), and update it on purpose.
 
 ---
 
-## 14. Troubleshooting
+## 15. Troubleshooting
 
 | Symptom | Cause and solution |
 |---|---|
-| The output differs from Azure in decimals or dates | Check `--culture` and `--time-zone`. Does your Logic App set `WEBSITE_TIME_ZONE`? Then use the same value. |
-| `Liquid error: ...` appears in the output | Logic Apps doesn't fail on render errors; it writes them into the output. The finding at the filter call (for example LQ102), or LQ040 with the output line, says which error. |
-| The output shows `?` instead of `✖`, or codes like `[31m` | The console doesn't use UTF-8 or doesn't understand colors. Use `--no-color`, or `--format msbuild` for plain one-line findings. |
-| A value is empty in the output | Look for LQ023 (value not found in the input), LQ025 (special character in the path), LQ127 (an object printed instead of a value) and LQ010/LQ011 (filter skipped). |
-| A loop renders nothing | LQ126: the value is a single object, typically XML converted to JSON with one element. Wrap it with `\| Compact`. |
-| `JsonToJson` output is `null` | The map rendered nothing (LQ042). Logic Apps doesn't fail on this; the action output is `null`. |
+| The output differs from Azure in decimals or dates | Check `--culture` and `--time-zone`. Does your Logic App set `WEBSITE_TIME_ZONE`? Use the same value. |
+| `Liquid error: ...` in the output | Logic Apps doesn't fail on render errors; it writes them into the output. The finding at the filter call (for example LQ102), or LQ040 with the output line, says which error. |
+| A value is empty in the output | Look for LQ023 (not in the input), LQ025 (special character in the path), LQ127 (an object printed) and LQ010/LQ011 (filter skipped). |
+| A loop renders nothing | LQ126: the value is a single object, typically XML with one element converted to JSON. Wrap it with `\| Compact`. |
+| `JsonToJson` output is `null` | The map rendered nothing (LQ042). Logic Apps doesn't fail on this. |
+| An XML file is reported as invalid | Logic Apps reads the message as UTF-8 bytes, and so does the tool: a UTF-16 file, or `encoding="utf-16"` on UTF-8 content, is rejected. |
+| `?` instead of `✖`, or codes like `[31m` | The console doesn't understand UTF-8 or colors. Use `--no-color`, or `--format msbuild`. |
 | `error: unknown time zone` | Use a Windows name (`W. Europe Standard Time`) or an IANA name (`Europe/Amsterdam`). |
-| An XML file is reported as invalid | The tool reads XML as UTF-8, like Logic Apps reads the message bytes. A file saved as UTF-16, or with a declaration like `encoding="utf-16"` on UTF-8 content, is rejected, just as in Logic Apps. |
-| Consumption logic app | Works the same (same DotLiquid version according to Microsoft). The conformance tests are verified against the Standard runtime. |
-| `la-liquid` not found after `dotnet tool install --global` | Open a new terminal, or add `%USERPROFILE%\.dotnet\tools` (Windows) or `~/.dotnet/tools` (Linux, macOS) to `PATH`. |
+| `la-liquid` not found after installing | Open a new terminal, or add `%USERPROFILE%\.dotnet\tools` (Windows) or `~/.dotnet/tools` to `PATH`. |
+| Logic Apps Consumption | Works the same: the same DotLiquid version, according to Microsoft. |
