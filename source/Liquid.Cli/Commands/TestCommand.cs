@@ -23,7 +23,7 @@ internal static class TestCommand
         };
         var junit = new Option<string?>("--junit")
         {
-            Description = "Write a JUnit XML report to this path (for the Azure DevOps PublishTestResults task).",
+            Description = "Write a JUnit XML report to this path, for the Azure DevOps PublishTestResults task or a GitHub test reporter.",
         };
         var updateExpected = new Option<bool>("--update-expected")
         {

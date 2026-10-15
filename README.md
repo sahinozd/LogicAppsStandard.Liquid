@@ -69,16 +69,20 @@ Consumption has no `WEBSITE_TIME_ZONE` app setting, so the default `--time-zone 
 
 ## Installing
 
-Requires the .NET 10 SDK or runtime.
+| Way | Command or link | Needs |
+|---|---|---|
+| .NET tool from NuGet | `dotnet tool install --global LogicApps.Liquid.Cli` | .NET 10 |
+| Executable (Windows, Linux, macOS) | [GitHub Releases](https://github.com/sahinozd/LogicAppsStandard.Liquid/releases) | nothing |
+| .NET library | `dotnet add package LogicApps.Liquid` | .NET 10 |
+| GitHub Action | `uses: sahinozd/LogicAppsStandard.Liquid@v1.0.0` | – |
+| Azure DevOps step template | [pipelines/templates/steps/validate-liquid-maps.yml](pipelines/templates/steps/validate-liquid-maps.yml) | – |
 
-```powershell
-# From a local build
-dotnet pack LogicAppsStandard.Liquid.slnx -c Release -o ./packages
-dotnet tool install --global LogicApps.Liquid.Cli --add-source ./packages
+**The [usage guide](USAGE_GUIDE.md) explains every way of installing, every command and option, test suites, Azure DevOps, GitHub Actions, VS Code and Visual Studio, and the .NET library.**
 
-# Or run from source
-dotnet run --project source/Liquid.Cli -- validate --map samples/maps
-```
+Releases are created by the [CI/CD workflow](.github/workflows/ci-cd.yml) when a version tag (`v1.2.3`) is pushed. Each release includes:
+- the NuGet packages, published to NuGet.org and GitHub Packages
+- self-contained executables for Windows, Linux and macOS
+- checksums
 
 ## Commands
 

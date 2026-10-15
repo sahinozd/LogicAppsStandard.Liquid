@@ -1,12 +1,23 @@
 # Reusable steps for integration pipelines: validates all Liquid maps of a Logic App and, optionally, runs a test suite.
+# The tool (LogicApps.Liquid.Cli) is installed from nuget.org, or from your own feed.
 #
-# Usage in a build stage of an integration pipeline:
+# Use it straight from GitHub, without copying it (needs a GitHub service connection in Azure DevOps):
+#
+#   resources:
+#     repositories:
+#       - repository: laliquid
+#         type: github
+#         endpoint: my-github-connection          # name of your GitHub service connection
+#         name: sahinozd/LogicAppsStandard.Liquid
+#         ref: refs/tags/v1.0.0                   # pin a release
 #
 #   steps:
-#     - template: templates/steps/validate-liquid-maps.yml
+#     - template: pipelines/templates/steps/validate-liquid-maps.yml@laliquid
 #       parameters:
 #         mapsFolder: '$(Build.SourcesDirectory)/src/LogicApp/Artifacts/Maps'
 #         testSuite: '$(Build.SourcesDirectory)/tests/Liquid/liquid-tests.json'
+#
+# Or copy this file into your own repository and use: - template: templates/steps/validate-liquid-maps.yml
 #
 # Findings are shown on the pipeline run summary with file and line, and the test results are published to the Tests tab.
 
@@ -22,6 +33,10 @@ parameters:
   - name: culture
     type: string
     default: en-US
+  # Time zone of the Logic Apps host: UTC, unless your Logic App sets the app setting WEBSITE_TIME_ZONE.
+  - name: timeZone
+    type: string
+    default: UTC
   - name: toolVersion
     type: string
     default: ''
@@ -54,7 +69,7 @@ steps:
     displayName: Install la-liquid
 
   - pwsh: |
-      $arguments = @('validate', '--map', '${{ parameters.mapsFolder }}', '--culture', '${{ parameters.culture }}')
+      $arguments = @('validate', '--map', '${{ parameters.mapsFolder }}', '--culture', '${{ parameters.culture }}', '--time-zone', '${{ parameters.timeZone }}')
       if ('${{ parameters.warningsAsErrors }}' -eq 'True') { $arguments += '--warnings-as-errors' }
       la-liquid @arguments
       exit $LASTEXITCODE
@@ -62,7 +77,7 @@ steps:
 
   - ${{ if ne(parameters.testSuite, '') }}:
       - pwsh: |
-          $arguments = @('test', '--suite', '${{ parameters.testSuite }}', '--culture', '${{ parameters.culture }}', '--junit', '$(Agent.TempDirectory)/la-liquid-results/liquid-tests.xml')
+          $arguments = @('test', '--suite', '${{ parameters.testSuite }}', '--culture', '${{ parameters.culture }}', '--time-zone', '${{ parameters.timeZone }}', '--junit', '$(Agent.TempDirectory)/la-liquid-results/liquid-tests.xml')
           if ('${{ parameters.warningsAsErrors }}' -eq 'True') { $arguments += '--warnings-as-errors' }
           la-liquid @arguments
           exit $LASTEXITCODE

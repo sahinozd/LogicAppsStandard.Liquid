@@ -1,0 +1,92 @@
+name: 'Logic Apps Liquid validator (la-liquid)'
+description: 'Validate Liquid maps and run Liquid test suites exactly like the Azure Logic Apps Liquid action.'
+author: 'Sahin Ozdemir'
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  maps:
+    description: 'A Liquid map, or a folder with Liquid maps (searched recursively for *.liquid).'
+    required: true
+  test-suite:
+    description: 'Optional test suite file (JSON) with inputs and expected outputs.'
+    required: false
+    default: ''
+  version:
+    description: 'Version of LogicApps.Liquid.Cli to install. Empty installs the latest version.'
+    required: false
+    default: ''
+  culture:
+    description: 'Culture of the Logic Apps host.'
+    required: false
+    default: 'en-US'
+  time-zone:
+    description: 'Time zone of the Logic Apps host: UTC, unless your Logic App sets WEBSITE_TIME_ZONE.'
+    required: false
+    default: 'UTC'
+  warnings-as-errors:
+    description: 'Treat warnings as errors.'
+    required: false
+    default: 'false'
+  nuget-source:
+    description: 'Optional NuGet source that hosts LogicApps.Liquid.Cli, for example GitHub Packages. Empty uses nuget.org.'
+    required: false
+    default: ''
+  dotnet-version:
+    description: '.NET SDK version used to install and run the tool.'
+    required: false
+    default: '10.x'
+
+outputs:
+  junit-report:
+    description: 'Path of the JUnit report of the test suite (empty when no test suite was given).'
+    value: ${{ steps.test.outputs.junit-report }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install .NET ${{ inputs.dotnet-version }}
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+
+    - name: Install la-liquid
+      shell: bash
+      env:
+        LA_VERSION: ${{ inputs.version }}
+        LA_SOURCE: ${{ inputs.nuget-source }}
+      run: |
+        args=(tool install LogicApps.Liquid.Cli --tool-path "$RUNNER_TEMP/la-liquid")
+        if [ -n "$LA_VERSION" ]; then args+=(--version "$LA_VERSION"); fi
+        if [ -n "$LA_SOURCE" ]; then args+=(--add-source "$LA_SOURCE"); fi
+        dotnet "${args[@]}"
+        echo "$RUNNER_TEMP/la-liquid" >> "$GITHUB_PATH"
+
+    - name: Validate Liquid maps
+      shell: bash
+      env:
+        LA_MAPS: ${{ inputs.maps }}
+        LA_CULTURE: ${{ inputs.culture }}
+        LA_TIME_ZONE: ${{ inputs.time-zone }}
+        LA_STRICT: ${{ inputs.warnings-as-errors }}
+      run: |
+        args=(validate --map "$LA_MAPS" --culture "$LA_CULTURE" --time-zone "$LA_TIME_ZONE")
+        if [ "$LA_STRICT" = "true" ]; then args+=(--warnings-as-errors); fi
+        la-liquid "${args[@]}"
+
+    - name: Run Liquid test suite
+      id: test
+      if: inputs.test-suite != ''
+      shell: bash
+      env:
+        LA_SUITE: ${{ inputs.test-suite }}
+        LA_CULTURE: ${{ inputs.culture }}
+        LA_TIME_ZONE: ${{ inputs.time-zone }}
+        LA_STRICT: ${{ inputs.warnings-as-errors }}
+      run: |
+        report="$RUNNER_TEMP/la-liquid-results/liquid-tests.xml"
+        echo "junit-report=$report" >> "$GITHUB_OUTPUT"
+        args=(test --suite "$LA_SUITE" --culture "$LA_CULTURE" --time-zone "$LA_TIME_ZONE" --junit "$report")
+        if [ "$LA_STRICT" = "true" ]; then args+=(--warnings-as-errors); fi
+        la-liquid "${args[@]}"

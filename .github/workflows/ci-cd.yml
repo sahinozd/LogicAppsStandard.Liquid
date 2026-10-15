@@ -1,0 +1,265 @@
+# ============================================================
+# GitHub Actions CI/CD Pipeline
+#
+# What this does:
+#   1. SCAN      - Scans the pushed commits for secrets (TruffleHog)
+#   2. TEST      - Builds the solution, runs the unit tests and the conformance tests
+#                  against the real Logic Apps runtime, and runs the sample Liquid suite
+#   3. RELEASE   - On a version tag only:
+#                    - packs the NuGet packages LogicApps.Liquid and LogicApps.Liquid.Cli (dotnet tool)
+#                    - publishes self-contained executables for Windows, Linux and macOS
+#                    - pushes the packages to GitHub Packages and NuGet.org
+#                    - creates a GitHub Release with all files attached
+#
+# Triggers:
+#   - Push / PR to main  →  Scan + Test
+#   - Push of a version tag (v1.2.3)  →  Scan + Test + Release
+#
+# Required GitHub repository settings (Settings → Secrets and variables → Actions):
+#   NUGET_API_KEY   - Your NuGet.org API key. Optional: without it the NuGet.org push is skipped,
+#                     the GitHub Packages push uses the built-in GITHUB_TOKEN.
+#
+# Versioning:
+#   Tags drive the version. Tag v1.2.3 gives packages and executables with version 1.2.3.
+# ============================================================
+
+name: CI/CD - Build, Test & Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'           # e.g. v1.2.3
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write          # needed to create a GitHub Release
+  packages: write          # needed to push to GitHub Packages (NuGet)
+  checks: write            # needed for dorny/test-reporter to post check results
+
+env:
+  DOTNET_VERSION: '10.x'
+  SOLUTION_PATH: 'LogicAppsStandard.Liquid.slnx'
+  LIBRARY_PROJECT: 'source/Liquid/LogicApps.Liquid.csproj'
+  CLI_PROJECT: 'source/Liquid.Cli/LogicApps.Liquid.Cli.csproj'
+  # Workflow extension bundle the conformance tests run against. Keep in line with RuntimeConstants.VerifiedExtensionBundleVersion.
+  WORKFLOW_BUNDLE_VERSION: '1.170.91'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ──────────────────────────────────────────────
+  # JOB 1 - Secret scanning (TruffleHog runs in a Linux container)
+  # ──────────────────────────────────────────────
+  secret-scan:
+    name: Secret scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Secret scanning (TruffleHog)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          head: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+  # ──────────────────────────────────────────────
+  # JOB 2 - Build, unit tests, conformance tests and sample suite
+  # ──────────────────────────────────────────────
+  build-and-test:
+    name: Build and Test
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # The conformance tests compare every case with the real Logic Apps Liquid engine from the workflow extension bundle.
+      - name: Download Logic Apps workflow extension bundle ${{ env.WORKFLOW_BUNDLE_VERSION }}
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'workflow-bundle.zip'
+          $target = Join-Path $env:RUNNER_TEMP 'workflow-bundle'
+          $url = "https://cdn.functions.azure.com/public/ExtensionBundles/Microsoft.Azure.Functions.ExtensionBundle.Workflows/$env:WORKFLOW_BUNDLE_VERSION/Microsoft.Azure.Functions.ExtensionBundle.Workflows.$($env:WORKFLOW_BUNDLE_VERSION)_any-any.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $target -Force
+          "LOGICAPPS_WORKFLOW_BUNDLE_BIN=$(Join-Path $target 'bin')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Restore NuGet packages
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Build solution
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+
+      - name: Run unit and conformance tests
+        run: dotnet test ${{ env.SOLUTION_PATH }} --configuration Release --no-build --results-directory ./TestResults --logger trx
+
+      # Dogfooding: the sample maps are tested with the tool itself, exactly like a consumer pipeline would.
+      - name: Run Liquid sample suite
+        run: dotnet run --project ${{ env.CLI_PROJECT }} --configuration Release --no-build -- test --suite samples/liquid-tests.json --junit ./TestResults/liquid/samples.xml
+
+      - name: Publish .NET test report
+        uses: dorny/test-reporter@v3
+        if: always()
+        with:
+          name: Unit and conformance tests
+          path: ./TestResults/*.trx
+          reporter: dotnet-trx
+          fail-on-error: true
+
+      - name: Publish Liquid test report
+        uses: dorny/test-reporter@v3
+        if: always()
+        with:
+          name: Liquid sample suite
+          path: ./TestResults/liquid/*.xml
+          reporter: java-junit
+          fail-on-error: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-results
+          path: ./TestResults
+
+  # ──────────────────────────────────────────────
+  # JOB 3 - Pack, publish and release
+  #         Only runs when a version tag is pushed
+  # ──────────────────────────────────────────────
+  release:
+    name: Package and Release
+    runs-on: ubuntu-latest
+    needs: [secret-scan, build-and-test]
+    if: startsWith(github.ref, 'refs/tags/v')
+    env:
+      # Job-level, so the NuGet.org step can be skipped when the secret is not set.
+      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # Tag v1.2.3  →  version 1.2.3
+      - name: Set version from tag
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+      - name: Restore NuGet packages
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Build solution
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore -p:Version=${{ steps.version.outputs.version }}
+
+      # ── NuGet packages: the library and the dotnet tool ──
+      - name: Pack NuGet packages
+        run: |
+          for project in "${{ env.LIBRARY_PROJECT }}" "${{ env.CLI_PROJECT }}"; do
+            dotnet pack "$project" \
+              --configuration Release \
+              --no-build \
+              --output ./artifacts/nuget \
+              -p:PackageVersion=${{ steps.version.outputs.version }} \
+              -p:Version=${{ steps.version.outputs.version }}
+          done
+
+      # ── Self-contained executables: no .NET installation needed ──
+      - name: Publish executables
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p ./artifacts/release
+          for rid in win-x64 win-arm64 linux-x64 linux-arm64 osx-x64 osx-arm64; do
+            dotnet publish "${{ env.CLI_PROJECT }}" \
+              --configuration Release \
+              --runtime "$rid" \
+              --self-contained \
+              --output "./publish/$rid" \
+              -p:PublishSingleFile=true \
+              -p:EnableCompressionInSingleFile=true \
+              -p:DebugType=none \
+              -p:Version="$VERSION"
+            cp README.md LICENSE THIRD_PARTY_NOTICES.md "./publish/$rid/"
+            if [[ "$rid" == win-* ]]; then
+              (cd "./publish/$rid" && zip -q -r "../../artifacts/release/la-liquid-$VERSION-$rid.zip" .)
+            else
+              chmod +x "./publish/$rid/la-liquid"
+              tar -czf "./artifacts/release/la-liquid-$VERSION-$rid.tar.gz" -C "./publish/$rid" .
+            fi
+          done
+          cp ./artifacts/nuget/*.nupkg ./artifacts/release/
+          (cd ./artifacts/release && sha256sum * > SHA256SUMS.txt)
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ steps.version.outputs.version }}
+          path: ./artifacts/release/*
+
+      # ── Publish to GitHub Packages (NuGet) ──
+      - name: Publish to GitHub Packages
+        run: |
+          dotnet nuget push "./artifacts/nuget/*.nupkg" \
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            --api-key "${{ secrets.GITHUB_TOKEN }}" \
+            --skip-duplicate
+
+      # ── Publish to NuGet.org (only when the NUGET_API_KEY secret is set) ──
+      - name: Publish to NuGet.org
+        if: env.NUGET_API_KEY != ''
+        run: |
+          dotnet nuget push "./artifacts/nuget/*.nupkg" \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key "$NUGET_API_KEY" \
+            --skip-duplicate
+
+      # ── GitHub Release with everything attached ──
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "la-liquid ${{ steps.version.outputs.version }}"
+          generate_release_notes: true
+          body: |
+            ## la-liquid ${{ steps.version.outputs.version }}
+
+            Validate and run Liquid maps exactly like the Azure Logic Apps Liquid action. See the [usage guide](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/USAGE_GUIDE.md).
+
+            ### Executables (no .NET needed)
+
+            | Platform | Download |
+            |---|---|
+            | Windows x64 / ARM64 | `la-liquid-${{ steps.version.outputs.version }}-win-x64.zip` / `-win-arm64.zip` |
+            | Linux x64 / ARM64 | `la-liquid-${{ steps.version.outputs.version }}-linux-x64.tar.gz` / `-linux-arm64.tar.gz` |
+            | macOS Intel / Apple silicon | `la-liquid-${{ steps.version.outputs.version }}-osx-x64.tar.gz` / `-osx-arm64.tar.gz` |
+
+            Checksums are in `SHA256SUMS.txt`.
+
+            ### NuGet (needs the .NET 10 SDK or runtime)
+
+            | Package | Install |
+            |---|---|
+            | `LogicApps.Liquid.Cli` (dotnet tool) | `dotnet tool install --global LogicApps.Liquid.Cli --version ${{ steps.version.outputs.version }}` |
+            | `LogicApps.Liquid` (library) | `dotnet add package LogicApps.Liquid --version ${{ steps.version.outputs.version }}` |
+          files: ./artifacts/release/*
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}

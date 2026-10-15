@@ -14,16 +14,19 @@ internal sealed class DiagnosticReporter
 {
     private readonly TextWriter _writer;
     private readonly bool _azureDevOps;
+    private readonly bool _gitHubActions;
 
     /// <summary>
     /// Creates a reporter.
     /// </summary>
     /// <param name="writer">Where to write the diagnostics.</param>
     /// <param name="azureDevOps">Also write Azure DevOps logging commands. Detected from <c>TF_BUILD</c> when null.</param>
-    public DiagnosticReporter(TextWriter writer, bool? azureDevOps = null)
+    /// <param name="gitHubActions">Also write GitHub Actions annotations. Detected from <c>GITHUB_ACTIONS</c> when null.</param>
+    public DiagnosticReporter(TextWriter writer, bool? azureDevOps = null, bool? gitHubActions = null)
     {
         _writer = writer ?? throw new ArgumentNullException(nameof(writer));
         _azureDevOps = azureDevOps ?? string.Equals(Environment.GetEnvironmentVariable("TF_BUILD"), "True", StringComparison.OrdinalIgnoreCase);
+        _gitHubActions = gitHubActions ?? string.Equals(Environment.GetEnvironmentVariable("GITHUB_ACTIONS"), "true", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -62,6 +65,11 @@ internal sealed class DiagnosticReporter
             {
                 _writer.WriteLine(AzureDevOpsIssue(diagnostic, severity, path));
             }
+
+            if (_gitHubActions && severity != DiagnosticSeverity.Info)
+            {
+                _writer.WriteLine(GitHubAnnotation(diagnostic, severity, path));
+            }
         }
     }
 
@@ -86,6 +94,29 @@ internal sealed class DiagnosticReporter
             DiagnosticSource.Output => context.OutputPath ?? $"{context.MapPath} (rendered output)",
             _ => context.MapPath,
         };
+    }
+
+    // GitHub Actions workflow command: ::error file=...,line=...,col=...,title=...::message
+    private static string GitHubAnnotation(Diagnostic diagnostic, DiagnosticSeverity severity, string path)
+    {
+        var command = severity == DiagnosticSeverity.Error ? "error" : "warning";
+        var properties = $"file={EscapeGitHubProperty(path.Replace('\\', '/'))},title={diagnostic.Code}";
+        if (diagnostic.Line is { } line)
+        {
+            properties += string.Create(CultureInfo.InvariantCulture, $",line={line},col={diagnostic.Column ?? 1}");
+        }
+
+        return $"::{command} {properties}::{EscapeGitHubData(diagnostic.Message)}";
+    }
+
+    private static string EscapeGitHubData(string value)
+    {
+        return value.Replace("%", "%25", StringComparison.Ordinal).Replace("\r", "%0D", StringComparison.Ordinal).Replace("\n", "%0A", StringComparison.Ordinal);
+    }
+
+    private static string EscapeGitHubProperty(string value)
+    {
+        return EscapeGitHubData(value).Replace(":", "%3A", StringComparison.Ordinal).Replace(",", "%2C", StringComparison.Ordinal);
     }
 
     private static string AzureDevOpsIssue(Diagnostic diagnostic, DiagnosticSeverity severity, string path)
