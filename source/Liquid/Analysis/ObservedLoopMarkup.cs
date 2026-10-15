@@ -84,9 +84,11 @@ internal static class ObservedLoopMarkup
             return;
         }
 
-        FilterObserver.Report(new FilterObservation(DiagnosticCodes.LoopOverSingleObject,
-            $"{tagName} over '{collection}' renders nothing: it is a single object, not an array. When XML is converted to JSON (json(xml(...))), a repeating element " +
-            "that occurs once becomes an object. Wrap it first: '{% assign items = " + collection + " | Compact %}' gives a list for both cases (Uniq also works, but removes duplicate values).",
-            line, column));
+        FilterObserver.Report(new FilterObservation(DiagnosticCodes.LoopOverSingleObject, $"{tagName} over a single object renders nothing", line, column)
+        {
+            Values = $"'{collection}' is an object, not an array",
+            Explanation = "When XML is converted to JSON (json(xml(...))), a repeating element that occurs once becomes an object.",
+            Fix = "Wrap it first: '{% assign items = " + collection + " | Compact %}' gives a list for both cases (Uniq also works, but removes duplicate values).",
+        });
     }
 }

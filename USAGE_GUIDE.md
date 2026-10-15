@@ -116,7 +116,7 @@ The chosen kind is printed (`Kind: JsonToJson (inferred)`). Set `--kind` explici
 `validate` checks maps and never writes files.
 
 ```powershell
-la-liquid validate --map <file-or-folder> [--input <file>] [--kind <kind>] [engine options] [--warnings-as-errors]
+la-liquid validate --map <file-or-folder> [--input <file>] [--kind <kind>] [engine options] [output options] [--warnings-as-errors]
 ```
 
 ### Without input: static checks
@@ -158,7 +158,7 @@ Nothing is written.
 ## 5. `transform`: run a map
 
 ```powershell
-la-liquid transform --map <file> --input <file> --output <file> [--kind <kind>] [--raw] [engine options] [--warnings-as-errors]
+la-liquid transform --map <file> --input <file> --output <file> [--kind <kind>] [--raw] [engine options] [output options] [--warnings-as-errors]
 ```
 
 ```text
@@ -265,18 +265,63 @@ Why this matters: on a Dutch laptop, DotLiquid computes `{{ 1.5 | Times: 2 }}` a
 
 ## 8. Reading the findings
 
-Every finding has the same format, which Visual Studio, VS Code, Azure DevOps and GitHub link to the source:
+By default the findings are grouped per map and sorted by line:
 
 ```text
-Artifacts/Maps/customer.liquid(6,14): error LQ010: Filter 'upcase' does not exist in Logic Apps, use 'Upcase'. ...
-<file>(<line>,<column>): <severity> <code>: <message>
+invoice.liquid  JsonToText
+
+  ≠ differs LQ100  Plus on text joins instead of adding
+     at invoice.liquid:8:36
+     8 │ {%- assign dueYear = invoiceYear | Plus: 1 -%}
+       │                                    ^^^^
+     values '2026' | Plus: 1 → '20261' (Shopify Liquid: 2027)
+     fix    Convert to a number first, for example '| Times: 1.0 | Round | Plus: ...'.
+
+  ✖ error   LQ102  Minus on text fails
+     at invoice.liquid:9:44
+     9 │ Days left: {{ content.order.deliveryDays | Minus: 1 }}
+       │                                            ^^^^^
+     values '5' | Minus: 1 → 'Liquid error' (Shopify Liquid converts '5' to a number)
+     output line 4: Days left: Liquid error: Parameter count mismatch.
+     fix    Convert it first, for example '| Times: 1.0 | Round'.
+
+✖ Validation failed  1 map · 1 error · 1 warning
+  differs from Shopify  1 error, 1 warning  LQ100, LQ102
+  More about a code: la-liquid explain LQ102
 ```
 
-- **`error`:** Logic Apps fails, or silently produces a wrong result. The command fails.
-- **`warning`:** probably a mistake, or a deviation from Shopify Liquid that changes the output for the values seen. The command passes, unless you use `--warnings-as-errors`.
-- **Location:** findings about the rendered output point to the output (`... (rendered output)(3,10)`) and show the offending line.
+- **`✖ error`:** Logic Apps fails, or silently produces a wrong result. The command fails.
+- **`⚠ warning`:** probably a mistake. The command passes, unless you use `--warnings-as-errors`.
+- **`≠ differs`:** a filter behaves differently from Shopify Liquid for the values seen while rendering (LQ100–LQ128). A warning, unless it writes `Liquid error` into the output: then it is an error.
+- **`at`:** `file:line:column`. In VS Code and Windows Terminal you can Ctrl+click it to open the line.
+- **`values`:** the actual values. A filter in a loop is reported once, with up to three different values.
+- **`output`:** the line of the rendered output where the problem shows up.
+- **`fix`:** what to write instead.
 
-The messages explain what happens and what to write instead. All codes are listed in the [README](README.md#diagnostics). The most common ones:
+`--verbosity detailed` also shows **why** it happens, and `--verbosity minimal` shows one line per finding. For the full description with an example:
+
+```powershell
+la-liquid explain LQ102   # one code
+la-liquid explain         # all codes, per category
+```
+
+When two checks see the same problem, it is reported once, at the place in the map to fix. For example, `{{ "5" | Minus: 1 }}` writes `Liquid error: Parameter count mismatch.` into the output; you get one LQ102 error at the `Minus` call instead of a separate LQ040 for the output.
+
+### Output formats
+
+| `--format` | For |
+|---|---|
+| `pretty` (default) | People: in the terminal, and in the Azure DevOps and GitHub Actions logs, which show the colors. |
+| `msbuild` | Editors: one line per finding, `<file>(<line>,<column>): <severity> <code>: <message>`, which the Visual Studio error list and the VS Code `$msCompile` problem matcher turn into clickable problems. |
+| `json` | Scripts: one JSON document with every finding (code, severity, category, title, values, explanation, fix, file, line, column). |
+
+In a pipeline, `pretty` and `msbuild` also log every finding as an annotation (`##vso[task.logissue]` in Azure DevOps, `::error` / `::warning` in GitHub Actions). The pipeline hides these lines and shows the findings on the run summary; GitHub also shows them next to the changed lines of a pull request.
+
+Colors are on in a terminal and in pipelines. They are off with `--no-color`, when the environment variable `NO_COLOR` is set, or when the output is redirected to a file.
+
+### Common codes
+
+All codes are listed in the [README](README.md#diagnostics) and by `la-liquid explain`. The most common ones:
 
 | Code | Meaning | Usual fix |
 |---|---|---|
@@ -433,7 +478,7 @@ Open the repository folder. *Terminal → Run Task* offers:
 | `la-liquid: test samples` | Runs the sample suite. |
 | `build`, `test` | Build and test the solution. |
 
-To use the tasks in your own integration repository, copy `.vscode/tasks.json` and replace `dotnet run --project ...` with `la-liquid` (the installed tool). The `$msCompile` problem matcher understands the findings.
+To use the tasks in your own integration repository, copy `.vscode/tasks.json` and replace `dotnet run --project ...` with `la-liquid` (the installed tool). The tasks pass `--format msbuild`, which the `$msCompile` problem matcher understands.
 
 Two launch configurations (`F5`) let you debug the tool itself.
 
@@ -441,7 +486,7 @@ Two launch configurations (`F5`) let you debug the tool itself.
 
 Open `LogicAppsStandard.Liquid.slnx`. To validate maps from Visual Studio in your own solution, add an external tool (*Tools → External Tools*):
 - **Command:** `la-liquid`
-- **Arguments:** `validate --map $(ItemPath)`
+- **Arguments:** `validate --map $(ItemPath) --format msbuild`
 - **Use Output window:** on
 
 Double-clicking a finding in the Output window opens the line.
@@ -540,7 +585,8 @@ DotLiquid's configuration and the emulated time zone are process-wide, so the li
 | Symptom | Cause and solution |
 |---|---|
 | The output differs from Azure in decimals or dates | Check `--culture` and `--time-zone`. Does your Logic App set `WEBSITE_TIME_ZONE`? Then use the same value. |
-| `Liquid error: ...` appears in the output | Logic Apps doesn't fail on render errors; it writes them into the output. The finding LQ040 says which error. |
+| `Liquid error: ...` appears in the output | Logic Apps doesn't fail on render errors; it writes them into the output. The finding at the filter call (for example LQ102), or LQ040 with the output line, says which error. |
+| The output shows `?` instead of `✖`, or codes like `[31m` | The console doesn't use UTF-8 or doesn't understand colors. Use `--no-color`, or `--format msbuild` for plain one-line findings. |
 | A value is empty in the output | Look for LQ023 (value not found in the input), LQ025 (special character in the path), LQ127 (an object printed instead of a value) and LQ010/LQ011 (filter skipped). |
 | A loop renders nothing | LQ126: the value is a single object, typically XML converted to JSON with one element. Wrap it with `\| Compact`. |
 | `JsonToJson` output is `null` | The map rendered nothing (LQ042). Logic Apps doesn't fail on this; the action output is `null`. |

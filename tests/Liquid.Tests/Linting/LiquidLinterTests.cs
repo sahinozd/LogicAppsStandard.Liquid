@@ -95,8 +95,8 @@ public sealed class LiquidLinterTests
         var diagnostic = LintAndFind("{% If content.a %}x{% endif %}", DiagnosticCodes.UnknownTag);
 
         // Assert
-        Assert.That(diagnostic.Message, Does.Contain("'if'"));
-        Assert.That((diagnostic.Line, diagnostic.Column), Is.EqualTo((1, 1)));
+        Assert.That(diagnostic.Fix, Does.Contain("'if'"));
+        Assert.That((diagnostic.Line, diagnostic.Column), Is.EqualTo((1, 4)), "points at the tag name");
     }
 
     [Test]
@@ -356,5 +356,15 @@ public sealed class LiquidLinterTests
     {
         // Act & Assert
         LintAndFind("{% include 'header' %}", DiagnosticCodes.IncludeNotSupported);
+    }
+
+    [Test]
+    public void Lint_Should_Not_Report_Unclosed_Block_When_Map_Uses_Include()
+    {
+        // Act
+        var diagnostics = _linter.Lint("{% include 'header' %}");
+
+        // Assert
+        Assert.That(diagnostics.Select(d => d.Code), Does.Not.Contain(DiagnosticCodes.UnbalancedBlock));
     }
 }

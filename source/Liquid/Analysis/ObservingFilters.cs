@@ -42,9 +42,10 @@ internal sealed class ObservingFilters
             var sum = IsNumber(operand)
                 ? (decimal.Parse(ShopifyReference.ToNumberText(text), CultureInfo.InvariantCulture) + Convert.ToDecimal(operand, CultureInfo.CurrentCulture)).ToString(CultureInfo.InvariantCulture)
                 : "a sum";
-            Report(DiagnosticCodes.PlusJoinsText,
-                $"{Show(input)} | Plus: {Show(operand)} joins text instead of adding: the result is '{string.Concat(input, operand)}', Shopify Liquid gives {sum}. " +
-                "Filters such as Date, Append and Split return text. Convert to a number first, for example '| Times: 1.0 | Round | Plus: ...'.");
+            Report(DiagnosticCodes.PlusJoinsText, "Plus on text joins instead of adding",
+                $"{Show(input)} | Plus: {Show(operand)} → '{string.Concat(input, operand)}' (Shopify Liquid: {sum})",
+                "DotLiquid adds text and a number as text. Filters such as Date, Append and Split return text.",
+                "Convert to a number first, for example '| Times: 1.0 | Round | Plus: ...'.");
             ReportTrailingZerosReachText(nameof(Plus), text);
         }
         else
@@ -66,10 +67,16 @@ internal sealed class ObservingFilters
         if (input is string text && operand is int or long)
         {
             var count = Convert.ToInt64(operand, CultureInfo.InvariantCulture);
-            var repeated = count is >= 0 and <= 5 ? $"'{string.Concat(Enumerable.Repeat(text, (int)count))}'" : $"the text {count} times";
-            Report(DiagnosticCodes.TimesRepeatsText,
-                $"{Show(input)} | Times: {Show(operand)} repeats the text instead of multiplying (result: {repeated}), " +
-                "and fails for a negative number. Shopify Liquid multiplies. Use a decimal operand, for example '| Times: 1.0', to convert text to a number.");
+            var repeated = count switch
+            {
+                < 0 => "'Liquid error'",
+                <= 5 => $"'{string.Concat(Enumerable.Repeat(text, (int)count))}'",
+                _ => $"the text {count} times",
+            };
+            Report(DiagnosticCodes.TimesRepeatsText, "Times on text repeats the text instead of multiplying",
+                $"{Show(input)} | Times: {Show(operand)} → {repeated} (Shopify Liquid multiplies)",
+                "DotLiquid repeats text when the operand is a whole number, and fails for a negative number.",
+                "Use a decimal operand, for example '| Times: 1.0', to convert text to a number.");
         }
         else
         {
@@ -86,8 +93,10 @@ internal sealed class ObservingFilters
 
         if (result is double { } quotient && (double.IsInfinity(quotient) || double.IsNaN(quotient)))
         {
-            Report(DiagnosticCodes.DivisionByZero,
-                $"{Show(input)} | DividedBy: {Show(operand)} divides by zero and renders '{Show(result)}'. Shopify Liquid raises an error. Check for zero first.");
+            Report(DiagnosticCodes.DivisionByZero, "Division by zero renders a value instead of an error",
+                $"{Show(input)} | DividedBy: {Show(operand)} → '{Show(result)}' (Shopify Liquid: error)",
+                "A decimal division by zero gives infinity or NaN in DotLiquid.",
+                "Check for zero first.");
         }
         else if (IsWholeNumber(input) && IsWholeNumber(operand) && result is not null)
         {
@@ -96,8 +105,10 @@ internal sealed class ObservingFilters
             var expected = ShopifyReference.FloorDivide(dividend, divisor);
             if (expected != Convert.ToInt64(result, CultureInfo.InvariantCulture))
             {
-                Report(DiagnosticCodes.NegativeIntegerDivision,
-                    $"{Show(input)} | DividedBy: {Show(operand)} gives {Show(result)}: integer division rounds toward zero. Shopify Liquid rounds down and gives {expected}.");
+                Report(DiagnosticCodes.NegativeIntegerDivision, "Negative integer division rounds toward zero",
+                    $"{Show(input)} | DividedBy: {Show(operand)} → {Show(result)} (Shopify Liquid: {expected})",
+                    "DotLiquid rounds toward zero, Shopify Liquid rounds down.",
+                    null);
             }
         }
 
@@ -116,8 +127,10 @@ internal sealed class ObservingFilters
             var expected = ShopifyReference.Modulo(dividend, divisor);
             if (expected != Convert.ToInt64(result, CultureInfo.InvariantCulture))
             {
-                Report(DiagnosticCodes.NegativeModulo,
-                    $"{Show(input)} | Modulo: {Show(operand)} gives {Show(result)}: the result takes the sign of the input. Shopify Liquid gives {expected}.");
+                Report(DiagnosticCodes.NegativeModulo, "Modulo of a negative number takes the sign of the input",
+                    $"{Show(input)} | Modulo: {Show(operand)} → {Show(result)} (Shopify Liquid: {expected})",
+                    "DotLiquid uses the C# remainder, Shopify Liquid the mathematical modulo.",
+                    null);
             }
         }
 
@@ -134,8 +147,10 @@ internal sealed class ObservingFilters
         var result = StandardFilters.Round(input, places);
         if (result is null)
         {
-            Report(DiagnosticCodes.RoundNotANumber,
-                $"{Show(input)} | Round returns nothing because the value is not a number.");
+            Report(DiagnosticCodes.RoundNotANumber, "Round on a value that is not a number returns nothing",
+                $"{Show(input)} | Round → nothing",
+                null,
+                "Check the input, or use '| Default' before Round.");
             return result;
         }
 
@@ -143,8 +158,10 @@ internal sealed class ObservingFilters
         var expected = ShopifyReference.Round(Convert.ToDecimal(input, CultureInfo.CurrentCulture), decimals);
         if (expected != (decimal)result)
         {
-            Report(DiagnosticCodes.BankersRounding,
-                $"{Show(input)} | Round{(places is null ? string.Empty : ": " + Show(places))} gives {Show(result)}: halves are rounded to the even number (banker's rounding). Shopify Liquid rounds half away from zero and gives {expected.ToString(CultureInfo.CurrentCulture)}.");
+            Report(DiagnosticCodes.BankersRounding, "Round rounds halves to the even number",
+                $"{Show(input)} | Round{(places is null ? string.Empty : ": " + Show(places))} → {Show(result)} (Shopify Liquid: {expected.ToString(CultureInfo.CurrentCulture)})",
+                "DotLiquid uses banker's rounding; Shopify Liquid rounds half away from zero.",
+                "Add a tiny amount before rounding when halves must round up, for example '| Plus: 0.0000001 | Round: 2'.");
         }
 
         return result;
@@ -174,13 +191,17 @@ internal sealed class ObservingFilters
     {
         if (!string.IsNullOrEmpty(input) && string.IsNullOrWhiteSpace(input))
         {
-            Report(DiagnosticCodes.DefaultDiffers,
-                $"Default treats the whitespace value {Show(input)} as empty and returns {Show(defaultValue)}. Shopify Liquid keeps the whitespace.");
+            Report(DiagnosticCodes.DefaultDiffers, "Default treats whitespace as empty",
+                $"{Show(input)} | Default: {Show(defaultValue)} → {Show(defaultValue)} (Shopify Liquid: {Show(input)})",
+                null,
+                null);
         }
         else if (input is "False")
         {
-            Report(DiagnosticCodes.DefaultDiffers,
-                $"Default does not treat false as empty: it returns 'False'. Shopify Liquid returns the default {Show(defaultValue)}. Use an if instead.");
+            Report(DiagnosticCodes.DefaultDiffers, "Default does not treat false as empty",
+                $"false | Default: {Show(defaultValue)} → 'False' (Shopify Liquid: {Show(defaultValue)})",
+                null,
+                "Use an if instead.");
         }
 
         return StandardFilters.Default(input, defaultValue);
@@ -220,8 +241,10 @@ internal sealed class ObservingFilters
                 var reason = pattern.Length == 0
                     ? "an empty separator does not split the text into characters"
                     : "empty items are dropped";
-                Report(DiagnosticCodes.SplitDiffers,
-                    $"{Show(input)} | Split: {Show(pattern)} gives {result.Length} item(s), Shopify Liquid gives {expected}: {reason}.");
+                Report(DiagnosticCodes.SplitDiffers, "Split gives a different number of items",
+                    $"{Show(input)} | Split: {Show(pattern)} → {result.Length} item(s) (Shopify Liquid: {expected})",
+                    $"In DotLiquid {reason}.",
+                    null);
             }
         }
 
@@ -272,8 +295,10 @@ internal sealed class ObservingFilters
             var expected = ShopifyReference.Capitalize(input);
             if (!string.Equals(expected, result, StringComparison.Ordinal))
             {
-                Report(DiagnosticCodes.CapitalizeDiffers,
-                    $"{Show(input)} | Capitalize gives '{result}': every word gets a capital and the rest is kept. Shopify Liquid gives '{expected}'.");
+                Report(DiagnosticCodes.CapitalizeDiffers, "Capitalize capitalizes every word",
+                    $"{Show(input)} | Capitalize → '{result}' (Shopify Liquid: '{expected}')",
+                    "DotLiquid gives every word a capital and keeps the rest; Shopify Liquid only capitalizes the first character and lowercases the rest.",
+                    null);
             }
         }
 
@@ -313,8 +338,10 @@ internal sealed class ObservingFilters
                 var expected = indexables.OrderBy(item => item.ContainsKey(property) ? item[property] : null, Comparer<object?>.Default).Cast<object?>().ToList();
                 if (!expected.SequenceEqual(sorted))
                 {
-                    Report(DiagnosticCodes.SortDiffers,
-                        $"Sort: {Show(property)} does not sort JSON input: the items keep their original order. Shopify Liquid sorts them by '{property}'. Sort by building the order yourself, for example with a for loop per value.");
+                    Report(DiagnosticCodes.SortDiffers, "Sort by property does not sort JSON input",
+                        $"Sort: {Show(property)} → original order (Shopify Liquid sorts by '{property}')",
+                        "DotLiquid cannot read the property of JSON objects while sorting, so the items keep their original order.",
+                        "Build the order yourself, for example with a for loop per value.");
                 }
             }
         }
@@ -323,8 +350,10 @@ internal sealed class ObservingFilters
             var ordinal = sorted.Cast<string>().OrderBy(item => item, StringComparer.Ordinal).ToList();
             if (!ordinal.SequenceEqual(sorted.Cast<string>()))
             {
-                Report(DiagnosticCodes.SortDiffers,
-                    $"Sort orders text by the host culture ('{string.Join(", ", sorted.Take(5))}'). Shopify Liquid sorts by character code, so upper case comes first ('{string.Join(", ", ordinal.Take(5))}').");
+                Report(DiagnosticCodes.SortDiffers, "Sort orders text by the host culture",
+                    $"'{string.Join(", ", sorted.Take(5))}' (Shopify Liquid: '{string.Join(", ", ordinal.Take(5))}')",
+                    "Shopify Liquid sorts by character code, so upper case comes first.",
+                    null);
             }
         }
 
@@ -335,35 +364,44 @@ internal sealed class ObservingFilters
     {
         if (format is not null && format.Contains('%', StringComparison.Ordinal))
         {
-            Report(DiagnosticCodes.DateStrftimeFormat,
-                $"Date: {Show(format)} uses a Ruby strftime format. DotLiquid uses .NET formats, for example 'yyyy-MM-dd' instead of '%Y-%m-%d'.");
+            Report(DiagnosticCodes.DateStrftimeFormat, "Date uses a Ruby strftime format",
+                $"Date: {Show(format)}",
+                "DotLiquid uses .NET date formats, so '%Y' and similar are not replaced.",
+                "Use .NET formats, for example 'yyyy-MM-dd' instead of '%Y-%m-%d'.");
         }
 
         if (input is string text && !string.IsNullOrWhiteSpace(format))
         {
             if (string.Equals(text, "now", StringComparison.OrdinalIgnoreCase) || string.Equals(text, "today", StringComparison.OrdinalIgnoreCase))
             {
-                Report(DiagnosticCodes.DateNow,
-                    $"{Show(input)} | Date uses the clock of the Logic Apps host in time zone '{TimeZoneInfo.Local.Id}'. In Azure this is UTC, unless the app setting WEBSITE_TIME_ZONE is set.");
+                Report(DiagnosticCodes.DateNow, "Date uses the clock and time zone of the Logic Apps host",
+                    $"{Show(input)} | Date (time zone here: '{TimeZoneInfo.Local.Id}')",
+                    "In Azure this is UTC, unless the app setting WEBSITE_TIME_ZONE is set.",
+                    "Pass the time from the workflow (utcNow()) in the input when the time zone matters.");
             }
             else if (!DateTime.TryParse(text, out _))
             {
-                Report(DiagnosticCodes.DateNotParsed,
-                    $"{Show(input)} | Date: {Show(format)} is not a date the host culture can parse, so the value is returned unchanged.");
+                Report(DiagnosticCodes.DateNotParsed, "Date cannot parse the value",
+                    $"{Show(input)} | Date: {Show(format)} → {Show(input)} (unchanged)",
+                    $"The host culture ({CultureInfo.CurrentCulture.Name}) cannot parse it as a date, so the value is returned unchanged.",
+                    "Use ISO dates (yyyy-MM-dd) in the input.");
             }
             else
             {
                 if (_timeZonePattern.IsMatch(text))
                 {
-                    Report(DiagnosticCodes.DateTimeZoneConversion,
-                        $"{Show(input)} | Date: {Show(format)} gives '{StandardFilters.Date(input, format)}': the time is converted to the time zone of the Logic Apps host ('{TimeZoneInfo.Local.Id}'). " +
-                        "In Azure this is UTC, unless the app setting WEBSITE_TIME_ZONE is set. Shopify Liquid keeps the time zone of the value.");
+                    Report(DiagnosticCodes.DateTimeZoneConversion, "Date converts the time to the time zone of the host",
+                        $"{Show(input)} | Date: {Show(format)} → '{StandardFilters.Date(input, format)}' (host time zone '{TimeZoneInfo.Local.Id}')",
+                        "In Azure the host runs in UTC, unless the app setting WEBSITE_TIME_ZONE is set. Shopify Liquid keeps the time zone of the value.",
+                        "Use 'K' in the format to write the actual offset, or convert the time in the workflow.");
                 }
 
                 if (!_isoDatePattern.IsMatch(text))
                 {
-                    Report(DiagnosticCodes.DateCultureParsing,
-                        $"{Show(input)} is parsed with the host culture ({CultureInfo.CurrentCulture.Name}) and becomes {DateTime.Parse(text, CultureInfo.CurrentCulture):yyyy-MM-dd}. Day and month can swap between cultures; use ISO dates (yyyy-MM-dd).");
+                    Report(DiagnosticCodes.DateCultureParsing, "Date parses the value with the host culture",
+                        $"{Show(input)} → {DateTime.Parse(text, CultureInfo.CurrentCulture):yyyy-MM-dd} (culture {CultureInfo.CurrentCulture.Name})",
+                        "Day and month can swap between cultures.",
+                        "Use ISO dates (yyyy-MM-dd).");
                 }
             }
         }
@@ -381,14 +419,16 @@ internal sealed class ObservingFilters
     {
         if (input is ILiquidizable)
         {
-            Report(DiagnosticCodes.ObjectInOutput,
-                "This output is an object (or an XML element with child elements), which prints nothing. DotLiquid cannot serialize objects: " +
-                "there is no json filter ('| Json' is skipped). Print the fields one by one, or pass the JSON as text in the input of the Liquid action.");
+            Report(DiagnosticCodes.ObjectInOutput, "An object is printed, which prints nothing",
+                null,
+                "The value is an object (or an XML element with child elements). DotLiquid cannot serialize objects: there is no json filter ('| Json' is skipped).",
+                "Print the fields one by one, or pass the JSON as text in the input of the Liquid action.");
         }
         else if (input is IEnumerable items and not string && items.Cast<object?>().Any(item => item is ILiquidizable))
         {
-            Report(DiagnosticCodes.ObjectInOutput,
-                $"This output is a list of objects: each object prints as the internal type name '{RuntimeConstants.JsonDropTypeName}'. " +
+            Report(DiagnosticCodes.ObjectInOutput, "A list of objects is printed as internal type names",
+                $"each object prints as '{RuntimeConstants.JsonDropTypeName}'",
+                "DotLiquid cannot serialize objects.",
                 "Loop over the list and print the fields instead.");
         }
 
@@ -415,8 +455,10 @@ internal sealed class ObservingFilters
             var unique = result.Cast<object?>().Count();
             if (original.TrueForAll(item => item is not IEnumerable || item is string) && unique < original.Count)
             {
-                Report(DiagnosticCodes.UniqRemovedDuplicates,
-                    $"Uniq removed {original.Count - unique} duplicate value(s). If Uniq is used to turn a single object into an array, use '| Compact' instead: it wraps a single object in the same way, but keeps duplicates.");
+                Report(DiagnosticCodes.UniqRemovedDuplicates, "Uniq removed duplicate values",
+                    $"{original.Count} → {unique} item(s)",
+                    "This is intended when Uniq is used to remove duplicates, but not when it is used to turn a single object into an array.",
+                    "To turn a single object into an array, use '| Compact': it wraps a single object in the same way, but keeps duplicates.");
             }
         }
 
@@ -427,8 +469,10 @@ internal sealed class ObservingFilters
     {
         if (IsNumber(input))
         {
-            Report(DiagnosticCodes.SizeOfNumber,
-                $"{Show(input)} | Size returns 0 for a number. Shopify Liquid returns the byte size of the number.");
+            Report(DiagnosticCodes.SizeOfNumber, "Size of a number returns 0",
+                $"{Show(input)} | Size → 0 (Shopify Liquid: the byte size of the number)",
+                null,
+                "Use Size on text or lists only.");
         }
 
         return StandardFilters.Size(input);
@@ -450,9 +494,10 @@ internal sealed class ObservingFilters
             }
             else
             {
-                Report(DiagnosticCodes.MathOnText,
-                    $"{Show(input)} | {filterName}: {Show(operand)} fails ('Liquid error'): DotLiquid does not convert the text {Show(text)} to a number. " +
-                    "Shopify Liquid does. Convert it first, for example '| Times: 1.0 | Round'.");
+                Report(DiagnosticCodes.MathOnText, $"{filterName} on text fails",
+                    $"{Show(input)} | {filterName}: {Show(operand)} → 'Liquid error' (Shopify Liquid converts {Show(text)} to a number)",
+                    "DotLiquid does not convert text to a number for whole-number math.",
+                    "Convert it first, for example '| Times: 1.0 | Round'.");
             }
         }
     }
@@ -467,8 +512,10 @@ internal sealed class ObservingFilters
         var text = value.ToString() ?? string.Empty;
         if (!double.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out _))
         {
-            Report(DiagnosticCodes.NumberFilterOnText,
-                $"{Show(value)} is not a number, so {filterName} {effect}. Shopify Liquid converts it to a number (0 when not numeric).");
+            Report(DiagnosticCodes.NumberFilterOnText, $"{filterName} on a value that is not a number",
+                $"{Show(value)} → {filterName} {effect}",
+                "Shopify Liquid converts it to a number (0 when not numeric).",
+                "Check the input, or use '| Default' first.");
         }
         else if (value is string)
         {
@@ -489,9 +536,10 @@ internal sealed class ObservingFilters
         var actual = decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out var number)
             ? number.ToString(CultureInfo.InvariantCulture)
             : "an error";
-        Report(DiagnosticCodes.CultureNumberParsing,
-            $"{Show(text)} is converted to a number with the host culture ({CultureInfo.CurrentCulture.Name}) and becomes {actual}. " +
-            $"Shopify Liquid reads '.' as the decimal separator and gives {ShopifyReference.ToNumberText(text)}. Make sure the source uses '.' and no thousands separator.");
+        Report(DiagnosticCodes.CultureNumberParsing, "Text is converted to a number with the host culture",
+            $"{Show(text)} → {actual} in {CultureInfo.CurrentCulture.Name} (Shopify Liquid: {ShopifyReference.ToNumberText(text)})",
+            $"{filterName} converts text with the culture of the Logic Apps host; Shopify Liquid always reads '.' as the decimal separator.",
+            "Make sure the source uses '.' and no thousands separator.");
     }
 
     // A decimal such as 2026.0 renders as 2026, so trailing zeros only matter when the value reaches a text filter.
@@ -520,14 +568,15 @@ internal sealed class ObservingFilters
 
     private void ReportTrailingZeros(string filterName, string text, string rendered, string origin)
     {
-        Report(DiagnosticCodes.DecimalTrailingZeros,
-            $"{filterName} receives '{text}' (a decimal from {origin}): text filters keep the trailing zeros, while {{{{ }}}} output renders the same value as '{rendered}'. " +
+        Report(DiagnosticCodes.DecimalTrailingZeros, "A decimal keeps its trailing zeros in a text filter",
+            $"{filterName} receives '{text}' (from {origin}; {{{{ }}}} output renders '{rendered}')",
+            "Text filters receive the decimal with its trailing zeros, while {{ }} output drops them.",
             "Use '| Round' (or '| Round: n') before passing it on.");
     }
 
-    private void Report(string code, string message)
+    private void Report(string code, string title, string? values, string? explanation, string? fix)
     {
-        FilterObserver.Report(new FilterObservation(code, message, _line, _column));
+        FilterObserver.Report(new FilterObservation(code, title, _line, _column) { Values = values, Explanation = explanation, Fix = fix });
     }
 
     // Sort, Compact and Uniq flatten nested lists. XML elements are lists of their child elements, so a list of elements
@@ -545,9 +594,10 @@ internal sealed class ObservingFilters
             return false;
         }
 
-        Report(DiagnosticCodes.XmlElementsFlattened,
-            $"{filterName} on XML elements flattens them into all of their child values, so the elements themselves are lost ('item.Name' no longer works). " +
-            $"Loop over the elements directly; to order them, loop once per value. Shopify Liquid keeps the elements.");
+        Report(DiagnosticCodes.XmlElementsFlattened, $"{filterName} on XML elements flattens them",
+            null,
+            "The result is a list of all child values, so the elements themselves are lost ('item.Name' no longer works). Shopify Liquid keeps the elements.",
+            "Loop over the elements directly; to order them, loop once per value.");
         return true;
     }
 
@@ -555,8 +605,10 @@ internal sealed class ObservingFilters
     {
         if (input is null)
         {
-            Report(DiagnosticCodes.AppendToNil,
-                $"{filterName}: {Show(value)} on a missing value returns nothing. Shopify Liquid returns {Show(value)}. Use '| Default: \"\"' first.");
+            Report(DiagnosticCodes.AppendToNil, $"{filterName} on a missing value returns nothing",
+                $"nil | {filterName}: {Show(value)} → nothing (Shopify Liquid: {Show(value)})",
+                null,
+                "Use '| Default: \"\"' first.");
         }
     }
 
@@ -575,17 +627,20 @@ internal sealed class ObservingFilters
         }
         catch (ArgumentException)
         {
-            Report(DiagnosticCodes.ReplaceIsRegex,
-                $"{filterName}: {Show(search)} fails: the search text is used as a regular expression and is not a valid one. Shopify Liquid replaces literal text. Escape it, for example '\\.' for a dot.");
+            Report(DiagnosticCodes.ReplaceIsRegex, $"{filterName} fails on an invalid regular expression",
+                $"{filterName}: {Show(search)} → error",
+                "DotLiquid uses the search text as a regular expression. Shopify Liquid replaces literal text.",
+                "Escape special characters, for example '\\.' for a dot.");
             throw;
         }
 
         var expected = literal();
         if (!string.Equals(expected, result, StringComparison.Ordinal))
         {
-            Report(DiagnosticCodes.ReplaceIsRegex,
-                $"{Show(input)} | {filterName}: {Show(search)}{(replacement is null ? string.Empty : ", " + Show(replacement))} gives '{result}': the search text is a regular expression. " +
-                $"Shopify Liquid replaces literal text and gives '{expected}'. Escape special characters, for example '\\.' for a dot.");
+            Report(DiagnosticCodes.ReplaceIsRegex, $"{filterName} uses the search text as a regular expression",
+                $"{Show(input)} | {filterName}: {Show(search)}{(replacement is null ? string.Empty : ", " + Show(replacement))} → '{result}' (Shopify Liquid: '{expected}')",
+                "Shopify Liquid replaces literal text.",
+                "Escape special characters, for example '\\.' for a dot.");
         }
 
         return result;
@@ -598,8 +653,10 @@ internal sealed class ObservingFilters
             var expected = ShopifyReference.EscapeHtml(input);
             if (!string.Equals(expected, result, StringComparison.Ordinal))
             {
-                Report(DiagnosticCodes.EscapeDiffers,
-                    $"{Show(input)} | {filterName} gives '{result}': non-ASCII characters are encoded as well. Shopify Liquid gives '{expected}'.");
+                Report(DiagnosticCodes.EscapeDiffers, $"{filterName} also encodes non-ASCII characters",
+                    $"{Show(input)} | {filterName} → '{result}' (Shopify Liquid: '{expected}')",
+                    null,
+                    null);
             }
         }
 

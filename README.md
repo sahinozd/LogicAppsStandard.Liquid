@@ -3,12 +3,28 @@
 `la-liquid` is a command line tool that validates Liquid maps and runs them **exactly like the Azure Logic Apps Standard Liquid action**, without deploying anything. It runs locally and in Azure DevOps pipelines.
 
 ```text
-> la-liquid validate --map Artifacts/Maps/customer.liquid --input samples/customer.json
-Kind: JsonToJson (inferred)
-Artifacts/Maps/customer.liquid(6,14): error LQ010: Filter 'upcase' does not exist in Logic Apps, use 'Upcase'. Logic Apps uses C# naming for filters and silently skips 'upcase', so the value is output unchanged.
-Artifacts/Maps/customer.liquid(8,17): warning LQ021: Comparison with nil: in Logic Apps a JSON null value becomes an empty string, so it is not nil. ...
-Validation failed: 1 map(s), 1 error(s), 1 warning(s).
+> la-liquid validate --map samples/maps/common-mistakes.liquid --input samples/inputs/common-mistakes.json
+samples/maps/common-mistakes.liquid  JsonToJson (inferred)
+
+  ✖ error   LQ010  Filter 'upcase' is skipped by Logic Apps
+     at samples/maps/common-mistakes.liquid:6:32
+     6 │     "name": "{{ content.name | upcase }}",
+       │                                ^^^^^^
+     fix    Use 'Upcase'.
+
+  ⚠ warning LQ021  Comparison with nil misses JSON null values
+     at samples/maps/common-mistakes.liquid:8:40
+     8 │     "hasEmail": {% if content.email == nil %}false{% else %}true{% endif %},
+       │                                        ^^^
+     fix    Also compare with "", for example 'x != nil and x != ""'.
+
+✖ Validation failed  1 map · 1 error · 1 warning
+  filters               1 error  LQ010
+  values & paths        1 warning  LQ021
+  More about a code: la-liquid explain LQ010
 ```
+
+In a terminal, errors are red, warnings yellow and differences from Shopify Liquid magenta.
 
 ---
 
@@ -91,7 +107,7 @@ Releases are created by the [CI/CD workflow](.github/workflows/ci-cd.yml) when a
 Checks maps without writing anything.
 
 ```powershell
-la-liquid validate --map <file-or-folder> [--input <file>] [--kind <kind>] [engine options] [--warnings-as-errors]
+la-liquid validate --map <file-or-folder> [--input <file>] [--kind <kind>] [engine options] [output options] [--warnings-as-errors]
 ```
 
 - With a **folder**, every `*.liquid` file in it is checked (recursively). That's a good first step in a pipeline.
@@ -102,7 +118,7 @@ la-liquid validate --map <file-or-folder> [--input <file>] [--kind <kind>] [engi
 Validates, renders and writes the output. The output file is **only written when there are no errors**.
 
 ```powershell
-la-liquid transform --map <file> --input <file> --output <file> [--kind <kind>] [--raw] [engine options] [--warnings-as-errors]
+la-liquid transform --map <file> --input <file> --output <file> [--kind <kind>] [--raw] [engine options] [output options] [--warnings-as-errors]
 ```
 
 - JSON output is written indented, the way the Logic Apps run history shows it. Use `--raw` to get the exact rendered text.
@@ -113,7 +129,18 @@ la-liquid transform --map <file> --input <file> --output <file> [--kind <kind>] 
 Runs a [test suite](#test-suites) with expected outputs and writes a JUnit report.
 
 ```powershell
-la-liquid test --suite liquid-tests.json [--junit results.xml] [--update-expected] [engine options] [--warnings-as-errors]
+la-liquid test --suite liquid-tests.json [--junit results.xml] [--update-expected] [engine options] [output options] [--warnings-as-errors]
+```
+
+The findings of a passing test are expected, so they are only shown for failing tests (or with `--verbosity detailed`).
+
+### `explain`
+
+Explains a code: what happens in Logic Apps, an example and the fix. Without a code, it lists all codes per category.
+
+```powershell
+la-liquid explain LQ102
+la-liquid explain
 ```
 
 ### Engine options
@@ -129,6 +156,16 @@ All commands accept these options:
 
 For `test`, `--culture` and `--time-zone` override the `culture` and `timeZone` of the suite file.
 
+### Output options
+
+`validate`, `transform` and `test` accept these options:
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--format` | `pretty` | `pretty`: readable, grouped per file, with the source line and a summary per category. `msbuild`: one line per finding (`file(line,col): error CODE: message`), for the Visual Studio error list and the VS Code `$msCompile` problem matcher. `json`: one JSON document, for scripts. |
+| `--verbosity` | `normal` | For `pretty`: `minimal` (one line per finding), `normal` (location, source line, values and fix) or `detailed` (also why). |
+| `--no-color` | off | No colors. Colors are also off when `NO_COLOR` is set, or when the output is redirected outside a pipeline. |
+
 ### Exit codes
 
 | Code | Meaning |
@@ -139,7 +176,14 @@ For `test`, `--culture` and `--time-zone` override the `culture` and `timeZone` 
 
 ## Diagnostics
 
-Findings use the MSBuild format `file(line,col): error CODE: message`, so Visual Studio, VS Code and Azure DevOps link them to the source. In Azure DevOps they are also logged with `##vso[task.logissue]`.
+Each finding has a short title, the actual values, a fix and, with `--verbosity detailed`, an explanation. `la-liquid explain <code>` shows the full description with an example.
+
+When two checks see the same problem, it is reported once, at the place in the map to fix:
+- a `Liquid error` in the output caused by a filter call (LQ102, LQ101, LQ022) is reported at that call, as an error, with the output line
+- a missing value caused by a special character in the path (LQ023) is reported with LQ025
+- the parse error of DotLiquid (LQ001) is reported at the location the static checks found
+
+**Pipelines:** the readable format is also the default in Azure DevOps and GitHub Actions; both show the colors. Every finding is also logged as an annotation (`##vso[task.logissue]` in Azure DevOps, `::error` / `::warning` in GitHub), so it appears on the run summary and, in GitHub, next to the changed lines of a pull request.
 
 | Code | Severity | What |
 |---|---|---|
@@ -313,7 +357,7 @@ steps:
 Open the folder in VS Code or `LogicAppsStandard.Liquid.slnx` in Visual Studio.
 
 The VS Code tasks (**Terminal → Run Task**):
-- **la-liquid: validate current map:** validates the open `.liquid` file; findings show up in the Problems panel.
+- **la-liquid: validate current map:** validates the open `.liquid` file; findings show up in the Problems panel (the tasks use `--format msbuild` for the problem matcher).
 - **la-liquid: transform current map:** asks for an input and output file.
 - **la-liquid: test samples**, plus **build** and **test**.
 

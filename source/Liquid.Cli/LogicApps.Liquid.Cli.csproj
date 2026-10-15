@@ -10,6 +10,8 @@
     <WarningLevel>9999</WarningLevel>
     <AssemblyName>la-liquid</AssemblyName>
     <RootNamespace>LogicApps.Liquid.Cli</RootNamespace>
+    <!-- Required by LibraryImport, used to turn on ANSI colors in the classic Windows console. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <PropertyGroup>
