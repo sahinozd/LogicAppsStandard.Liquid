@@ -2,7 +2,7 @@
 
 All notable changes to `la-liquid` and the `LogicApps.Liquid` library. The release pipeline publishes the section of a version as its release notes, so every version tag needs a section here.
 
-## [1.2.0] - Unreleased
+## [1.2.0] - 2026-10-15
 
 New checks, found by comparing the Logic Apps engine with Shopify Liquid, Microsoft's documentation, DotLiquid's issue list and questions on Microsoft Q&A. Every finding is confirmed on the real Logic Apps engine by the conformance tests.
 
