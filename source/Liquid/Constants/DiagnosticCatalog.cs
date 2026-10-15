@@ -223,7 +223,7 @@ public static class DiagnosticCatalog
             "Use 'K' in the format to write the actual offset, or convert the time in the workflow."),
         Describe(DiagnosticCodes.DateCultureParsing, DiagnosticCategory.ShopifyDeviation, Warning, "Date parses the value with the host culture",
             "A date that is not ISO is parsed with the host culture, so day and month can swap.",
-            "{{ \"03/04/2026\" | Date: \"yyyy-MM-dd\" }}  → 2026-03-04 on en-US, 2026-04-03 on nl-NL",
+            "{{ \"03/04/2026\" | Date: \"yyyy-MM-dd\" }}  → 2026-03-04 on en-US, 2026-04-03 in a day-month culture",
             "Use ISO dates (yyyy-MM-dd) in the input."),
         Describe(DiagnosticCodes.DateStrftimeFormat, DiagnosticCategory.ShopifyDeviation, Warning, "Date uses a Ruby strftime format",
             "DotLiquid uses .NET date formats, so '%Y' and similar are not replaced.",

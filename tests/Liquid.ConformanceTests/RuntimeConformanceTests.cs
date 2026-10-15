@@ -1,4 +1,5 @@
 using System.Globalization;
+using LogicApps.Liquid.Constants;
 using LogicApps.Liquid.Enums;
 using LogicApps.Liquid.Models;
 using LogicApps.Liquid.Runtime;
@@ -16,17 +17,16 @@ namespace LogicApps.Liquid.ConformanceTests;
 public sealed class RuntimeConformanceTests
 {
     private static readonly Lazy<RuntimeLiquidEngine?> RuntimeEngine = new(RuntimeLiquidEngine.TryLoad);
-    private static readonly string[] Cultures = ["en-US", "nl-NL"];
+    // The culture of Logic Apps in Azure.
+    private static readonly CultureInfo Culture = CultureInfo.GetCultureInfo(RuntimeConstants.DefaultCultureName);
 
     private static IEnumerable<TestCaseData> Cases()
     {
-        return from culture in Cultures
-               from conformanceCase in ConformanceCases.All()
-               select new TestCaseData(conformanceCase, culture).SetName($"{conformanceCase.Name} [{culture}]");
+        return ConformanceCases.All().Select(conformanceCase => new TestCaseData(conformanceCase).SetName(conformanceCase.Name));
     }
 
     [TestCaseSource(nameof(Cases))]
-    public void Transform_Should_Match_Logic_Apps_Runtime_When_Running_Same_Case(ConformanceCase conformanceCase, string cultureName)
+    public void Transform_Should_Match_Logic_Apps_Runtime_When_Running_Same_Case(ConformanceCase conformanceCase)
     {
         ArgumentNullException.ThrowIfNull(conformanceCase);
 
@@ -37,8 +37,7 @@ public sealed class RuntimeConformanceTests
             Assert.Ignore($"No Logic Apps workflow extension bundle found. Install the Azure Logic Apps (Standard) VS Code extension, or set {RuntimeLiquidEngine.BundlePathVariable}.");
         }
 
-        var culture = CultureInfo.GetCultureInfo(cultureName);
-        var transformer = new LiquidTransformer(new LiquidTransformOptions { Culture = culture });
+        var transformer = new LiquidTransformer(new LiquidTransformOptions { Culture = Culture });
 
         // Act
         RuntimeOutcome expected;
@@ -46,8 +45,8 @@ public sealed class RuntimeConformanceTests
         var previousUiCulture = CultureInfo.CurrentUICulture;
         try
         {
-            CultureInfo.CurrentCulture = culture;
-            CultureInfo.CurrentUICulture = culture;
+            CultureInfo.CurrentCulture = Culture;
+            CultureInfo.CurrentUICulture = Culture;
 
             // The tool emulates the time zone of Logic Apps in Azure (UTC); the runtime runs in this process, so it gets the same.
             using var timeZone = new TimeZoneScope(TimeZoneInfo.Utc);

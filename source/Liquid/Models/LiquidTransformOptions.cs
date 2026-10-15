@@ -10,7 +10,7 @@ public sealed class LiquidTransformOptions
 {
     /// <summary>
     /// The culture to emulate. DotLiquid uses the current culture to parse decimal literals and to format numbers
-    /// and dates: on a Dutch machine <c>{{ 1.5 | Times: 2 }}</c> renders <c>30</c>, on en-US it renders <c>3</c>.
+    /// and dates: with a comma as decimal separator <c>{{ 1.5 | Times: 2 }}</c> renders <c>30</c>, on en-US it renders <c>3</c>.
     /// Defaults to <see cref="RuntimeConstants.DefaultCultureName"/>.
     /// </summary>
     public CultureInfo Culture { get; init; } = CultureInfo.GetCultureInfo(RuntimeConstants.DefaultCultureName);

@@ -90,7 +90,7 @@ Every result was confirmed on the real Logic Apps engine and compared with the [
 | LQ116 | `"café" \| Escape` | `caf&#233;` | `café` |
 | LQ117 | `items \| Sort: "n"` on JSON or XML / `["b","A","a"] \| Sort` | **not sorted** / `a,A,b` | sorted / `A,a,b` |
 | LQ118 | `"2026-10-15T23:30:00Z" \| Date: "HH:mm"` | converted to the host time zone | keeps the time zone |
-| LQ119 | `"03/04/2026" \| Date: "yyyy-MM-dd"` | `2026-03-04` on en-US, `2026-04-03` on nl-NL | `2026-04-03` |
+| LQ119 | `"03/04/2026" \| Date: "yyyy-MM-dd"` | `2026-03-04` on en-US, `2026-04-03` in a day-month culture | `2026-04-03` |
 | LQ120 | `Date: "%Y-%m-%d"` | not replaced: .NET formats | `2026-10-15` |
 | LQ121 | `"not a date" \| Date: "yyyy"` | returned unchanged | returned unchanged |
 | LQ122 | `"now" \| Date: "yyyy"` | host clock and time zone | server clock |

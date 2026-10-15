@@ -148,7 +148,7 @@ public static class DiagnosticCodes
     /// <summary><c>Date</c> converts a date with a time zone (<c>Z</c>, <c>+02:00</c>) to the time zone of the Logic Apps host.</summary>
     public const string DateTimeZoneConversion = "LQ118";
 
-    /// <summary><c>Date</c> parses a non-ISO date with the host culture (<c>03/04/2026</c> is March 4 on en-US, April 3 on nl-NL).</summary>
+    /// <summary><c>Date</c> parses a non-ISO date with the host culture (<c>03/04/2026</c> is March 4 on en-US, April 3 in a day-month culture).</summary>
     public const string DateCultureParsing = "LQ119";
 
     /// <summary><c>Date</c> uses .NET format strings (<c>yyyy-MM-dd</c>), not Ruby strftime (<c>%Y-%m-%d</c>).</summary>
