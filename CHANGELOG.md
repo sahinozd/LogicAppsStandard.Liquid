@@ -2,7 +2,7 @@
 
 All notable changes to `la-liquid` and the `LogicApps.Liquid` library. The release pipeline publishes the section of a version as its release notes, so every version tag needs a section here.
 
-## [1.1.0] - Unreleased
+## [1.1.0] - 2026-10-15
 
 ### Added
 - Readable output, now the default (`--format pretty`): findings grouped per map and sorted by line, the source line with a marker under the problem, the actual values and the fix, and a summary per category. Colors in the terminal and in Azure DevOps and GitHub Actions logs.
