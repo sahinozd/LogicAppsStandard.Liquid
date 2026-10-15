@@ -13,8 +13,8 @@ namespace LogicApps.Liquid.Analysis;
 /// </summary>
 internal static class ObservedLoopMarkup
 {
-    private static readonly Regex _markerPattern = new(@"\s__site:(?<line>\d+)_(?<column>\d+)");
-    private static readonly Regex _collectionPattern = new(@"^\s*\w+\s+in\s+(?<collection>[^\s]+)");
+    private static readonly Regex MarkerPattern = new(@"\s__site:(?<line>\d+)_(?<column>\d+)");
+    private static readonly Regex CollectionPattern = new(@"^\s*\w+\s+in\s+(?<collection>[^\s]+)");
 
     /// <summary>The name of the observing <c>for</c> tag.</summary>
     public const string ForTagName = "for__observed";
@@ -22,7 +22,7 @@ internal static class ObservedLoopMarkup
     /// <summary>The name of the observing <c>JSONArrayFor</c> tag.</summary>
     public const string JsonArrayForTagName = RuntimeConstants.JsonArrayForTagName + "__observed";
 
-    private static readonly Lock _syncRoot = new();
+    private static readonly Lock SyncRoot = new();
     private static bool _registered;
 
     /// <summary>
@@ -30,7 +30,7 @@ internal static class ObservedLoopMarkup
     /// </summary>
     public static void EnsureRegistered()
     {
-        lock (_syncRoot)
+        lock (SyncRoot)
         {
             if (_registered)
             {
@@ -61,11 +61,11 @@ internal static class ObservedLoopMarkup
     /// <returns>The original markup, the location and the collection expression.</returns>
     public static (string Markup, int Line, int Column, string Collection) Parse(string markup)
     {
-        var marker = _markerPattern.Match(markup);
+        var marker = MarkerPattern.Match(markup);
         var line = marker.Success ? int.Parse(marker.Groups["line"].Value, CultureInfo.InvariantCulture) : 0;
         var column = marker.Success ? int.Parse(marker.Groups["column"].Value, CultureInfo.InvariantCulture) : 0;
         var clean = marker.Success ? markup.Remove(marker.Index, marker.Length) : markup;
-        var collection = _collectionPattern.Match(clean);
+        var collection = CollectionPattern.Match(clean);
         return (clean, line, column, collection.Success ? collection.Groups["collection"].Value : string.Empty);
     }
 

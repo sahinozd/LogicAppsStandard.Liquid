@@ -222,13 +222,13 @@ la-liquid test --suite ./tests/liquid-tests.json
 ```
 
 ```text
-✔ PASS  Order to shipment request (81 ms)
-✖ FAIL  Legacy map: known null checks and a Date in UTC (9 ms)
+✓ PASS  Order to shipment request (81 ms)
+✗ FAIL  Legacy map: known null checks and a Date in UTC (9 ms)
          Output differs at line 3.
            expected:   "amount": 12.5,
            actual:     "amount": 125,
 
-✖ Tests failed  1 passed · 1 failed
+✗ Tests failed  1 passed · 1 failed
 ```
 
 The findings of a passing test are expected, so they are only shown for failing tests. Use `--verbosity detailed` to see all of them.
@@ -259,7 +259,7 @@ la-liquid explain         # all codes, per category
 | `--culture` | `en-US` | `--culture nl-NL` | To see what a map does on a host with another culture. DotLiquid reads decimals and formats numbers and dates with it. |
 | `--time-zone` | `UTC` | `--time-zone "W. Europe Standard Time"` | When your Logic App sets the app setting `WEBSITE_TIME_ZONE`: use the same value. Windows and IANA names (`Europe/Amsterdam`) both work; `local` uses this machine's zone. |
 | `--no-lint` | off | `--no-lint` | Skip the static checks, for example to see only what the engine reports. |
-| `--no-deviations` | off | `--no-deviations` | Skip the differences from Shopify Liquid (LQ100–LQ128). |
+| `--no-deviations` | off | `--no-deviations` | Skip the differences from Shopify Liquid (LQ100–LQ133). |
 
 Why the defaults matter: on a Dutch laptop without them, `{{ 1.5 | Times: 2 }}` gives `30`, and dates shift by one or two hours.
 
@@ -309,7 +309,7 @@ invoice.liquid  JsonToText
      values '2026' | Plus: 1 → '20261' (Shopify Liquid: 2027)
      fix    Convert to a number first, for example '| Times: 1.0 | Round | Plus: ...'.
 
-  ✖ error   LQ102  Minus on text fails
+  ✗ error   LQ102  Minus on text fails
      at invoice.liquid:9:44
      9 │ Days left: {{ content.order.deliveryDays | Minus: 1 }}
        │                                            ^^^^^
@@ -317,15 +317,15 @@ invoice.liquid  JsonToText
      output line 4: Days left: Liquid error: Parameter count mismatch.
      fix    Convert it first, for example '| Times: 1.0 | Round'.
 
-✖ Validation failed  1 map · 1 error · 1 warning
+✗ Validation failed  1 map · 1 error · 1 warning
   differs from Shopify  1 error, 1 warning  LQ100, LQ102
   More about a code: la-liquid explain LQ102
 ```
 
 | Part | Meaning |
 |---|---|
-| `✖ error` | Logic Apps fails, or silently produces a wrong result. The command fails. |
-| `⚠ warning` | Probably a mistake. The command passes, unless `--warnings-as-errors`. |
+| `✗ error` | Logic Apps fails, or silently produces a wrong result. The command fails. |
+| `▲ warning` | Probably a mistake. The command passes, unless `--warnings-as-errors`. |
 | `≠ differs` | A filter gives another result than in Shopify Liquid for these values. An error when it writes `Liquid error` into the output. |
 | `at` | `file:line:column`. Ctrl+click opens it in VS Code and Windows Terminal. |
 | `values` | The actual values. A filter in a loop is reported once, with up to three values. |
@@ -557,7 +557,7 @@ Transforms run one at a time per process, because DotLiquid's configuration is p
 | A large number is negative or wrong | LQ129: math filters calculate whole numbers as 32-bit integers. Use a decimal operand, for example `\| Times: 100.0`. |
 | `JsonToJson` output is `null` | The map rendered nothing (LQ042). Logic Apps doesn't fail on this. |
 | An XML file is reported as invalid | Logic Apps reads the message as UTF-8 bytes, and so does the tool: a UTF-16 file, or `encoding="utf-16"` on UTF-8 content, is rejected. |
-| `?` instead of `✖`, or codes like `[31m` | The console doesn't understand UTF-8 or colors. Use `--no-color`, or `--format msbuild`. |
+| `?` instead of `✗`, or codes like `[31m` | The console doesn't understand UTF-8 or colors. Use `--no-color`, or `--format msbuild`. |
 | `error: unknown time zone` | Use a Windows name (`W. Europe Standard Time`) or an IANA name (`Europe/Amsterdam`). |
 | `la-liquid` not found after installing | Open a new terminal, or add `%USERPROFILE%\.dotnet\tools` (Windows) or `~/.dotnet/tools` to `PATH`. |
 | Logic Apps Consumption | Works the same: the same DotLiquid version, according to Microsoft. |

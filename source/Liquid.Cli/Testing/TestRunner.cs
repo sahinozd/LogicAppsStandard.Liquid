@@ -4,7 +4,6 @@ using System.Text;
 using LogicApps.Liquid.Cli.Commands;
 using LogicApps.Liquid.Cli.Helpers;
 using LogicApps.Liquid.Cli.Models;
-using LogicApps.Liquid.Cli.Reporting;
 using LogicApps.Liquid.Enums;
 using LogicApps.Liquid.Extensions;
 using LogicApps.Liquid.Models;

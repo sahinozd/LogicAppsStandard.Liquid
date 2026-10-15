@@ -13,13 +13,13 @@ namespace LogicApps.Liquid.Analysis;
 /// </summary>
 internal static class DiagnosticMerger
 {
-    private static readonly Regex _pathSegmentPattern = new(@"^'\.(?<segment>[^']+)'");
+    private static readonly Regex PathSegmentPattern = new(@"^'\.(?<segment>[^']+)'");
 
-    private static readonly HashSet<string> _syntaxCodes =
+    private static readonly HashSet<string> SyntaxCodes =
         [DiagnosticCodes.TemplateSyntaxError, DiagnosticCodes.UnknownTag, DiagnosticCodes.UnbalancedBlock, DiagnosticCodes.UnterminatedTag];
 
     // Render error text written by DotLiquid → the map finding that explains it.
-    private static readonly (string ErrorText, string Code)[] _renderErrorCauses =
+    private static readonly (string ErrorText, string Code)[] RenderErrorCauses =
     [
         ("Parameter count mismatch", DiagnosticCodes.MathOnText),
         ("(Parameter 'count')", DiagnosticCodes.TimesRepeatsText),
@@ -73,7 +73,7 @@ internal static class DiagnosticMerger
     {
         var parseError = diagnostics.FirstOrDefault(d => d.Code == DiagnosticCodes.TemplateSyntaxError && d.Line is null);
         var located = diagnostics
-            .Where(d => d.Severity == DiagnosticSeverity.Error && d.Source == DiagnosticSource.Map && d.Line is not null && _syntaxCodes.Contains(d.Code))
+            .Where(d => d.Severity == DiagnosticSeverity.Error && d.Source == DiagnosticSource.Map && d.Line is not null && SyntaxCodes.Contains(d.Code))
             .OrderBy(d => d.Line)
             .ThenBy(d => d.Column)
             .FirstOrDefault();
@@ -90,7 +90,7 @@ internal static class DiagnosticMerger
     // make it an error, and remember the output line.
     private static void MergeRenderErrors(List<Diagnostic> diagnostics)
     {
-        foreach (var (errorText, code) in _renderErrorCauses)
+        foreach (var (errorText, code) in RenderErrorCauses)
         {
             var renderErrors = diagnostics
                 .Where(d => d.Code == DiagnosticCodes.RenderError && d.Source == DiagnosticSource.Output && d.Values?.Contains(errorText, StringComparison.Ordinal) == true)
@@ -132,7 +132,7 @@ internal static class DiagnosticMerger
         var paths = diagnostics.Where(d => d.Code == DiagnosticCodes.SpecialCharacterInPath).ToList();
         foreach (var path in paths)
         {
-            var match = _pathSegmentPattern.Match(path.Title);
+            var match = PathSegmentPattern.Match(path.Title);
             if (!match.Success)
             {
                 continue;

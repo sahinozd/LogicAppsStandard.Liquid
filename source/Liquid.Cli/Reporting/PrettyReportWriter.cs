@@ -87,7 +87,7 @@ internal sealed class PrettyReportWriter : IReportWriter
     {
         ArgumentNullException.ThrowIfNull(result);
 
-        var label = result.Passed ? _palette.Green("✔ PASS") : _palette.Red("✖ FAIL");
+        var label = result.Passed ? _palette.Green("✓ PASS") : _palette.Red("✗ FAIL");
         var duration = _palette.Dim(string.Create(CultureInfo.InvariantCulture, $"({result.Duration.TotalMilliseconds:0} ms)"));
         _writer.WriteLine($"{label}  {result.Name} {duration}");
         foreach (var failure in result.Failures)
@@ -131,8 +131,8 @@ internal sealed class PrettyReportWriter : IReportWriter
 
         _writer.WriteLine();
         var outcome = summary.Succeeded
-            ? _palette.Green($"✔ {summary.Operation} succeeded")
-            : _palette.Red($"✖ {summary.Operation} failed");
+            ? _palette.Green($"✓ {summary.Operation} succeeded")
+            : _palette.Red($"✗ {summary.Operation} failed");
         _writer.WriteLine($"{outcome}  {string.Join(_palette.Dim(" · "), parts)}");
 
         if (_verbosity != OutputVerbosity.Minimal)
@@ -155,7 +155,7 @@ internal sealed class PrettyReportWriter : IReportWriter
     private void WriteFileHeader(IReadOnlyList<Diagnostic> diagnostics, DiagnosticContext context)
     {
         var kind = context.Kind is { } value ? _palette.Dim($"  {value}{(context.KindInferred ? " (inferred)" : string.Empty)}") : string.Empty;
-        var status = diagnostics.Count == 0 ? "  " + _palette.Green("✔ no findings") : string.Empty;
+        var status = diagnostics.Count == 0 ? "  " + _palette.Green("✓ no findings") : string.Empty;
         _writer.WriteLine($"{_palette.Bold(context.MapPath)}{kind}{status}");
     }
 
@@ -262,10 +262,10 @@ internal sealed class PrettyReportWriter : IReportWriter
     {
         return severity switch
         {
-            DiagnosticSeverity.Error => _palette.Red("✖ error  "),
+            DiagnosticSeverity.Error => _palette.Red("✗ error  "),
             DiagnosticSeverity.Warning when diagnostic.IsShopifyDeviation => _palette.Magenta("≠ differs"),
-            DiagnosticSeverity.Warning => _palette.Yellow("⚠ warning"),
-            _ => _palette.Cyan("ℹ info   "),
+            DiagnosticSeverity.Warning => _palette.Yellow("▲ warning"),
+            _ => _palette.Cyan("i info   "),
         };
     }
 

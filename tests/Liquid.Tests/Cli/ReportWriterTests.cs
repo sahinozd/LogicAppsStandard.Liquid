@@ -46,13 +46,13 @@ public sealed class ReportWriterTests
         // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(text, Does.Contain("✖ error"));
+            Assert.That(text, Does.Contain("✗ error"));
             Assert.That(text, Does.Contain("map.liquid:1:25"));
             Assert.That(text, Does.Contain("1 │ Name: {{ content.name | upcase }}"));
             Assert.That(text, Does.Contain("  │                         ^^^^^^"), "the marker is under 'upcase'");
             Assert.That(text, Does.Contain("fix    Use 'Upcase'."));
             Assert.That(text, Does.Not.Contain("C# names"), "the explanation is only shown with --verbosity detailed");
-            Assert.That(text, Does.Contain("✖ Validation failed"));
+            Assert.That(text, Does.Contain("✗ Validation failed"));
             Assert.That(text, Does.Contain("filters"));
             Assert.That(text, Does.Not.Contain("\u001b["));
         });
@@ -109,7 +109,7 @@ public sealed class ReportWriterTests
         var text = Write(Pretty(output, color: true), output, _finding);
 
         // Assert
-        Assert.That(text, Does.Contain("\u001b[1;31m✖ error"));
+        Assert.That(text, Does.Contain("\u001b[1;31m✗ error"));
     }
 
     [Test]

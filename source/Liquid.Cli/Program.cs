@@ -3,7 +3,7 @@ using System.Text;
 using LogicApps.Liquid.Cli.Commands;
 using LogicApps.Liquid.Constants;
 
-// The pretty output uses symbols such as ✖ and →; without this the Windows console shows them as '?'.
+// The pretty output uses symbols such as ✗ and →; without this the Windows console shows them as '?'.
 Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
 var root = new RootCommand(

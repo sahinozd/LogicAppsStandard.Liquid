@@ -12,8 +12,8 @@ namespace LogicApps.Liquid.Analysis;
 /// </summary>
 internal sealed class ObservingCondition
 {
-    private static readonly HashSet<string> _orderingOperators = new(StringComparer.Ordinal) { "<", ">", "<=", ">=" };
-    private static readonly HashSet<string> _equalityOperators = new(StringComparer.Ordinal) { "==", "!=", "<>" };
+    private static readonly HashSet<string> OrderingOperators = new(StringComparer.Ordinal) { "<", ">", "<=", ">=" };
+    private static readonly HashSet<string> EqualityOperators = new(StringComparer.Ordinal) { "==", "!=", "<>" };
 
     private readonly ConditionOperatorDelegate _original;
     private readonly string _operator;
@@ -54,15 +54,15 @@ internal sealed class ObservingCondition
         {
             InspectContains(left, right, result);
         }
-        else if (_equalityOperators.Contains(_operator) && (IsKeyword(_right, "blank") || IsKeyword(_right, "empty")))
+        else if (EqualityOperators.Contains(_operator) && (IsKeyword(_right, "blank") || IsKeyword(_right, "empty")))
         {
             InspectBlankOrEmpty(left, _right, result);
         }
-        else if (_equalityOperators.Contains(_operator) && (IsKeyword(_left, "blank") || IsKeyword(_left, "empty")))
+        else if (EqualityOperators.Contains(_operator) && (IsKeyword(_left, "blank") || IsKeyword(_left, "empty")))
         {
             InspectBlankOrEmpty(right, _left, result);
         }
-        else if (_orderingOperators.Contains(_operator) || _equalityOperators.Contains(_operator))
+        else if (OrderingOperators.Contains(_operator) || EqualityOperators.Contains(_operator))
         {
             InspectComparison(left, right, result);
         }
@@ -95,7 +95,7 @@ internal sealed class ObservingCondition
     {
         var textAndNumber = (left is string && IsNumber(right)) || (IsNumber(left) && right is string);
         var bothNumericText = left is string leftText && right is string rightText && TryNumber(leftText, out _) && TryNumber(rightText, out _);
-        if (!textAndNumber && !(bothNumericText && _orderingOperators.Contains(_operator)))
+        if (!textAndNumber && !(bothNumericText && OrderingOperators.Contains(_operator)))
         {
             return;
         }

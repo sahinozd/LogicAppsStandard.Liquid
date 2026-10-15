@@ -17,8 +17,8 @@ namespace LogicApps.Liquid.Analysis;
 /// </summary>
 internal sealed class ObservingFilters
 {
-    private static readonly Regex _timeZonePattern = new(@"(Z|[+-]\d{2}:?\d{2})$", RegexOptions.IgnoreCase);
-    private static readonly Regex _isoDatePattern = new(@"^\d{4}-\d{2}-\d{2}");
+    private static readonly Regex TimeZonePattern = new(@"(Z|[+-]\d{2}:?\d{2})$", RegexOptions.IgnoreCase);
+    private static readonly Regex IsoDatePattern = new(@"^\d{4}-\d{2}-\d{2}");
 
     // How DotLiquid renders a decimal in output (Variable.Render): without trailing zeros.
     private const string RenderedDecimalFormat = "0.#############################";
@@ -113,7 +113,7 @@ internal sealed class ObservingFilters
         InspectMath(nameof(DividedBy), input, operand);
         var result = StandardFilters.DividedBy(input, operand);
 
-        if (result is double { } quotient && (double.IsInfinity(quotient) || double.IsNaN(quotient)))
+        if (result is double quotient && (double.IsInfinity(quotient) || double.IsNaN(quotient)))
         {
             Report(DiagnosticCodes.DivisionByZero, "Division by zero renders a value instead of an error",
                 $"{Show(input)} | DividedBy: {Show(operand)} → '{Show(result)}' (Shopify Liquid: error)",
@@ -255,7 +255,7 @@ internal sealed class ObservingFilters
         }
 
         return ObserveReplace(nameof(RemoveFirst), input, @string, string.Empty, () => StandardFilters.RemoveFirst(input, @string),
-            () => ShopifyReference.ReplaceFirst(input!, @string!, string.Empty));
+            () => ShopifyReference.ReplaceFirst(input, @string!, string.Empty));
     }
 
     public string[] Split(string? input, string? pattern)
@@ -426,7 +426,7 @@ internal sealed class ObservingFilters
             }
             else
             {
-                if (_timeZonePattern.IsMatch(text))
+                if (TimeZonePattern.IsMatch(text))
                 {
                     Report(DiagnosticCodes.DateTimeZoneConversion, "Date converts the time to the time zone of the host",
                         $"{Show(input)} | Date: {Show(format)} → '{StandardFilters.Date(input, format)}' (host time zone '{TimeZoneInfo.Local.Id}')",
@@ -434,7 +434,7 @@ internal sealed class ObservingFilters
                         "Use 'K' in the format to write the actual offset, or convert the time in the workflow.");
                 }
 
-                if (!_isoDatePattern.IsMatch(text))
+                if (!IsoDatePattern.IsMatch(text))
                 {
                     Report(DiagnosticCodes.DateCultureParsing, "Date parses the value with the host culture",
                         $"{Show(input)} → {DateTime.Parse(text, CultureInfo.CurrentCulture):yyyy-MM-dd} (culture {CultureInfo.CurrentCulture.Name})",
@@ -487,11 +487,11 @@ internal sealed class ObservingFilters
             return result;
         }
 
-        if (input is IEnumerable items && input is not string && result is not null)
+        if (input is IEnumerable items and not string && result is not null)
         {
             var original = items.Cast<object?>().ToList();
             var unique = result.Cast<object?>().Count();
-            if (original.TrueForAll(item => item is not IEnumerable || item is string) && unique < original.Count)
+            if (original.TrueForAll(item => item is not IEnumerable or string) && unique < original.Count)
             {
                 Report(DiagnosticCodes.UniqRemovedDuplicates, "Uniq removed duplicate values",
                     $"{original.Count} → {unique} item(s)",
@@ -646,7 +646,7 @@ internal sealed class ObservingFilters
         }
 
         var call = $"{Show(input)} | {filterName}: {Show(operand)}";
-        const string Explanation = "DotLiquid calculates whole numbers as 32-bit integers, so a value or result above 2,147,483,647 wraps around or fails. " +
+        const string explanation = "DotLiquid calculates whole numbers as 32-bit integers, so a value or result above 2,147,483,647 wraps around or fails. " +
             "IDs, amounts in cents and timestamps in milliseconds easily get that large.";
         var fix = $"Use a decimal operand, for example '| {filterName}: {right.ToString(CultureInfo.InvariantCulture)}.0'. Output shows no decimals for a whole result.";
         try
@@ -656,7 +656,7 @@ internal sealed class ObservingFilters
         catch (Exception ex) when (ex is OverflowException or TargetInvocationException or InvalidOperationException)
         {
             Report(DiagnosticCodes.WholeNumberOverflow, "Large whole numbers overflow in math filters",
-                $"{call} → 'Liquid error' (Shopify Liquid: {expected.ToString(CultureInfo.InvariantCulture)})", Explanation, fix);
+                $"{call} → 'Liquid error' (Shopify Liquid: {expected.ToString(CultureInfo.InvariantCulture)})", explanation, fix);
             throw;
         }
 
@@ -666,7 +666,7 @@ internal sealed class ObservingFilters
         }
 
         Report(DiagnosticCodes.WholeNumberOverflow, "Large whole numbers overflow in math filters",
-            $"{call} → {Show(result)} (Shopify Liquid: {expected.ToString(CultureInfo.InvariantCulture)})", Explanation, fix);
+            $"{call} → {Show(result)} (Shopify Liquid: {expected.ToString(CultureInfo.InvariantCulture)})", explanation, fix);
         return true;
     }
 

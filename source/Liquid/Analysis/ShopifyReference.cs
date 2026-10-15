@@ -10,8 +10,8 @@ namespace LogicApps.Liquid.Analysis;
 /// </summary>
 internal static class ShopifyReference
 {
-    private static readonly Regex _rubyDecimalPattern = new(@"^-?\d+\.\d+$");
-    private static readonly Regex _rubyIntegerPrefixPattern = new(@"^[+-]?\d+");
+    private static readonly Regex RubyDecimalPattern = new(@"^-?\d+\.\d+$");
+    private static readonly Regex RubyIntegerPrefixPattern = new(@"^[+-]?\d+");
 
     /// <summary>Ruby rounds half away from zero.</summary>
     public static decimal Round(decimal value, int decimals)
@@ -136,12 +136,12 @@ internal static class ShopifyReference
     public static string ToNumberText(string input)
     {
         var text = input.Trim();
-        if (_rubyDecimalPattern.IsMatch(text))
+        if (RubyDecimalPattern.IsMatch(text))
         {
             return decimal.Parse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);
         }
 
-        var leadingInteger = _rubyIntegerPrefixPattern.Match(text);
+        var leadingInteger = RubyIntegerPrefixPattern.Match(text);
         return leadingInteger.Success ? long.Parse(leadingInteger.Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture) : "0";
     }
 }

@@ -6,19 +6,19 @@
 > la-liquid validate --map samples/maps/common-mistakes.liquid --input samples/inputs/common-mistakes.json
 samples/maps/common-mistakes.liquid  JsonToJson (inferred)
 
-  ✖ error   LQ010  Filter 'upcase' is skipped by Logic Apps
+  ✗ error   LQ010  Filter 'upcase' is skipped by Logic Apps
      at samples/maps/common-mistakes.liquid:6:32
      6 │     "name": "{{ content.name | upcase }}",
        │                                ^^^^^^
      fix    Use 'Upcase'.
 
-  ⚠ warning LQ021  Comparison with nil misses JSON null values
+  ▲ warning LQ021  Comparison with nil misses JSON null values
      at samples/maps/common-mistakes.liquid:8:40
      8 │     "hasEmail": {% if content.email == nil %}false{% else %}true{% endif %},
        │                                        ^^^
      fix    Also compare with "", for example 'x != nil and x != ""'.
 
-✖ Validation failed  1 map · 1 error · 1 warning
+✗ Validation failed  1 map · 1 error · 1 warning
   filters               1 error  LQ010
   values & paths        1 warning  LQ021
   More about a code: la-liquid explain LQ010

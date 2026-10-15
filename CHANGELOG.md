@@ -31,6 +31,7 @@ New checks, found by comparing the Logic Apps engine with Shopify Liquid, Micros
 - LQ113 reported a difference for `Split: ' '`, which splits on runs of whitespace in Shopify Liquid too.
 - Render errors named the tool's own type for an input value; they now name the runtime's type, as Logic Apps does.
 - LQ043 called an empty value (`"x": ,`) an empty array item.
+- The symbols for error, warning and success (✖ ⚠ ✔) are emoji, which Windows Terminal draws two columns wide, so they covered the space after them. They are now ✗ ▲ ✓.
 
 ## [1.1.0] - 2026-10-15
 

@@ -93,9 +93,9 @@ internal static class ExplainCommand
     {
         return descriptor.Severity switch
         {
-            DiagnosticSeverity.Error => palette.Red("✖ error  "),
+            DiagnosticSeverity.Error => palette.Red("✗ error  "),
             _ when descriptor.Category == DiagnosticCategory.ShopifyDeviation => palette.Magenta("≠ differs"),
-            _ => palette.Yellow("⚠ warning"),
+            _ => palette.Yellow("▲ warning"),
         };
     }
 
