@@ -15,7 +15,7 @@ public sealed class LiquidLinter : ILiquidLinter
     private static readonly Regex _stringPattern = new(@"""[^""]*""|'[^']*'");
     private static readonly Regex _filterPattern = new(@"\|\s*(\w+)");
     // An identifier that is not part of a property path (no leading '.'), not a named argument (no trailing ':').
-    private static readonly Regex _identifierPattern = new(@"(?<![\w.\]\[-])([A-Za-z_][\w-]*)(?![\w-]*\s*:)");
+    private static readonly Regex _identifierPattern = new(@"(?<![\w.\]\[@$#-])([A-Za-z_][\w-]*)(?![\w-]*\s*:)");
     private static readonly Regex _assignPattern = new(@"^(?<name>[\w-]+)\s*=\s*(?<value>.*)$", RegexOptions.Singleline);
     private static readonly Regex _firstWordPattern = new(@"^(\w+)");
     private static readonly Regex _loopPattern = new(@"^(?<item>\w+)\s+in\s+(?<collection>\S+)");

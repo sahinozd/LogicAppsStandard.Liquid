@@ -163,7 +163,7 @@ Findings use the MSBuild format `file(line,col): error CODE: message`, so Visual
 | LQ027 | warning | `Plus: 0` / `Times: 1` used as a text-to-number conversion: on text it joins or repeats |
 | LQ028 | warning | Empty search text in `Replace`/`Remove`, for example `''''` meant as an escaped apostrophe: does nothing |
 | LQ043 | warning | The JSON output contains empty array items, which become `undefined` |
-| LQ100–LQ127 | warning | A filter behaves differently from Shopify Liquid, see [Where DotLiquid differs from Shopify Liquid](#where-dotliquid-differs-from-shopify-liquid) |
+| LQ100–LQ128 | warning | A filter behaves differently from Shopify Liquid, see [Where DotLiquid differs from Shopify Liquid](#where-dotliquid-differs-from-shopify-liquid) |
 
 ## Where DotLiquid differs from Shopify Liquid
 
@@ -207,6 +207,7 @@ Every result below was confirmed on the real Logic Apps engine (conformance test
 | LQ125 | `["x","x","y"] \| Uniq` | `x,y`: reported because Uniq is often used as an array wrapper (see below) | `x,y` |
 | LQ126 | `{% for x in singleObject %}` | renders nothing | iterates the hash |
 | LQ127 | `{{ content.address }}` / `{{ content.items }}` (objects) | nothing / `Microsoft.Azure.Function.Common.JObjectDrop…` | the hash / array as text |
+| LQ128 | `content.Root.Packages \| Sort: "Weight"` (also `Compact`, `Uniq`) on XML elements | the elements are flattened into all their child values (`12.5, 2, 3.75, 1`) | sorted elements |
 
 The working conversion from text to a whole number is `| Times: 1.0 | Round`, for example `{{ "2026" | Times: 1.0 | Round | Plus: 10 }}` gives `2036`.
 

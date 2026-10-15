@@ -150,4 +150,7 @@ public static class DiagnosticCodes
 
     /// <summary><c>{{ }}</c> outputs an object (prints nothing) or an array of objects (prints internal type names) instead of a value.</summary>
     public const string ObjectInOutput = "LQ127";
+
+    /// <summary><c>Sort</c>, <c>Compact</c> or <c>Uniq</c> on XML elements flattens them into all of their child values: the elements are lost.</summary>
+    public const string XmlElementsFlattened = "LQ128";
 }
