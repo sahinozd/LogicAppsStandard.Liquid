@@ -57,11 +57,11 @@ The Liquid that Logic Apps runs is not the Liquid in the Shopify documentation, 
 
 | Way | Command | Needs |
 |---|---|---|
-| .NET tool | `dotnet tool install --global LogicApps.Liquid.Cli` | .NET 10 |
+| .NET tool | `dotnet tool install --global LogicApps.Liquid.Cli` | .NET 8 or later |
 | Executable | [GitHub Releases](https://github.com/sahinozd/LogicAppsStandard.Liquid/releases) (Windows, Linux, macOS) | nothing |
 | GitHub Action | `uses: sahinozd/LogicAppsStandard.Liquid@v1.0.2` | – |
 | Azure DevOps | [step template](pipelines/templates/steps/validate-liquid-maps.yml) | – |
-| .NET library | `dotnet add package LogicApps.Liquid` | .NET 10 |
+| .NET library | `dotnet add package LogicApps.Liquid` | .NET 8 or later |
 
 ## Quick start
 

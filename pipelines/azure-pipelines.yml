@@ -28,6 +28,13 @@ steps:
       packageType: sdk
       version: $(dotnetVersion)
 
+  # The tool and the tests also target .NET 8, the SDK the Logic Apps extension for VS Code installs.
+  - task: UseDotNet@2
+    displayName: Install .NET 8 runtime
+    inputs:
+      packageType: runtime
+      version: 8.0.x
+
   - pwsh: |
       $zip = Join-Path $env:AGENT_TEMPDIRECTORY 'workflow-bundle.zip'
       $target = Join-Path $env:AGENT_TEMPDIRECTORY 'workflow-bundle'

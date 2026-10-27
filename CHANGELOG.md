@@ -2,6 +2,12 @@
 
 All notable changes to `la-liquid` and the `LogicApps.Liquid` library. The release pipeline publishes the section of a version as its release notes, so every version tag needs a section here.
 
+## [1.3.0] - 2026-10-27
+
+### Added
+- The tool and the library also target .NET 8. The Logic Apps extension for VS Code installs a .NET 8 SDK and puts it first in the `PATH` of the VS Code terminal; installing the tool there failed with "Settings file 'DotnetToolSettings.xml' was not found in the package". It now installs with .NET 8 or later.
+- The unit and conformance tests run on both .NET 8 and .NET 10.
+
 ## [1.2.1] - 2026-10-15
 
 Maintenance release: no changes in what the tool reports.

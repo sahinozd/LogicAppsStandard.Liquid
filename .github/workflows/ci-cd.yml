@@ -88,7 +88,10 @@ jobs:
       - name: Install .NET ${{ env.DOTNET_VERSION }}
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          # The tests also run on .NET 8, the SDK the Logic Apps extension for VS Code installs.
+          dotnet-version: |
+            8.0.x
+            ${{ env.DOTNET_VERSION }}
 
       # The conformance tests compare every case with the real Logic Apps Liquid engine from the workflow extension bundle.
       - name: Download Logic Apps workflow extension bundle ${{ env.WORKFLOW_BUNDLE_VERSION }}
@@ -213,6 +216,7 @@ jobs:
           for rid in win-x64 win-arm64 linux-x64 linux-arm64 osx-x64 osx-arm64; do
             dotnet publish "${{ env.CLI_PROJECT }}" \
               --configuration Release \
+              --framework net10.0 \
               --runtime "$rid" \
               --self-contained \
               --output "./publish/$rid" \
@@ -285,7 +289,7 @@ jobs:
             echo "| Linux x64 / ARM64 | \`la-liquid-$VERSION-linux-x64.tar.gz\` / \`-linux-arm64.tar.gz\` |"
             echo "| macOS Intel / Apple silicon | \`la-liquid-$VERSION-osx-x64.tar.gz\` / \`-osx-arm64.tar.gz\` |"
             echo
-            echo "Checksums are in \`SHA256SUMS.txt\`. With the .NET 10 SDK or runtime:"
+            echo "Checksums are in \`SHA256SUMS.txt\`. With the .NET 8 or 10 SDK or runtime:"
             echo
             echo '```powershell'
             echo "dotnet tool install --global LogicApps.Liquid.Cli --version $VERSION   # the CLI"
