@@ -25,6 +25,7 @@ internal static class DiagnosticMerger
         ("(Parameter 'count')", DiagnosticCodes.TimesRepeatsText),
         ("does not allow includes", DiagnosticCodes.IncludeNotSupported),
         ("target of an invocation", DiagnosticCodes.WholeNumberOverflow),
+        ("Value cannot be null. (Parameter 'input')", DiagnosticCodes.ExtraOpeningBrace),
     ];
 
     /// <summary>

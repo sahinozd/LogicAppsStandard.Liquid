@@ -424,8 +424,23 @@ public sealed class LiquidLinter : ILiquidLinter
     }
 
     // DotLiquid ends an output at the first '}', also inside quotes ('{{ x | Default: "{}" }}').
+    // And in '{{{ x }}' the third '{' becomes part of the expression.
     private static void CheckBraceInOutput(LiquidToken token, TextPosition position, List<Diagnostic> diagnostics)
     {
+        if (token.Raw.StartsWith("{{{", StringComparison.Ordinal))
+        {
+            // With a space after the extra brace Logic Apps writes 'Liquid error'; without one it happens to work.
+            var breaks = token.Raw.Length > 3 && char.IsWhiteSpace(token.Raw[3]);
+            var (braceLine, braceColumn) = position.At(token.Offset + 2);
+            diagnostics.Add(new Diagnostic(DiagnosticCodes.ExtraOpeningBrace, breaks ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning, "Extra '{' at the start of {{ }}", DiagnosticSource.Map, braceLine, braceColumn)
+            {
+                Explanation = breaks
+                    ? "DotLiquid reads the third '{' as part of the expression, so Logic Apps writes 'Liquid error: Value cannot be null. (Parameter 'input')' instead of the value."
+                    : "It only works because there is no space after the extra '{'; one added space turns the output into a 'Liquid error'.",
+                Fix = "Use two braces: '{{ ... }}'. If the first '{' is meant as text, for example to open a JSON object, put a space after it: '{ {{ ... }}'.",
+            });
+        }
+
         var brace = token.Raw.IndexOf('}', 2);
         if (brace >= 0 && brace < token.Raw.Length - 2)
         {

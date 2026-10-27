@@ -16,6 +16,7 @@ Every finding has a code. `la-liquid explain <code>` shows the same information 
 | LQ003 | error | Block never closed, or an end tag that doesn't match |
 | LQ004 | error | `{{` or `{%` never closed, or spread over several lines |
 | LQ005 | error | A `}` inside `{{ }}`, also inside quotes (`{{ x \| Default: '{}' }}`): ends the output, so the map fails to parse |
+| LQ006 | error | An extra `{` at the start of an output (`{{{ x }}`): Logic Apps writes `Liquid error: Value cannot be null.` instead of the value |
 
 ### Filters
 

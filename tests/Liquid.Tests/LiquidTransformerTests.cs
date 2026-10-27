@@ -323,6 +323,21 @@ public sealed class LiquidTransformerTests
     }
 
     [Test]
+    public void Transform_Should_Report_Extra_Brace_Once_When_It_Writes_Liquid_Error()
+    {
+        // Act
+        var result = new LiquidTransformer().Transform("<item>\n<action>{{{ content.onclick }}</action>\n</item>", """{"onclick":"x"}""", LiquidTransformKind.JsonToText);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Diagnostics.Select(d => d.Code), Is.EqualTo([DiagnosticCodes.ExtraOpeningBrace]));
+            Assert.That(result.Diagnostics[0].OutputLine, Is.EqualTo(2));
+            Assert.That(result.Diagnostics[0].Explanation, Does.Contain("Value cannot be null"));
+        });
+    }
+
+    [Test]
     public void Validate_Should_Report_Parse_Error_When_Static_Checks_Are_Off()
     {
         // Act
