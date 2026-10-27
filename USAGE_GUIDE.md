@@ -24,7 +24,7 @@ How to install and use `la-liquid`: every command and option with an example, te
 
 ## 1. Install
 
-**.NET tool** (needs .NET 10):
+**.NET tool** (needs .NET 8 or later, so the SDK that the Logic Apps extension for VS Code installs works too):
 
 ```powershell
 dotnet tool install --global LogicApps.Liquid.Cli                  # install
@@ -559,5 +559,6 @@ Transforms run one at a time per process, because DotLiquid's configuration is p
 | An XML file is reported as invalid | Logic Apps reads the message as UTF-8 bytes, and so does the tool: a UTF-16 file, or `encoding="utf-16"` on UTF-8 content, is rejected. |
 | `?` instead of `✗`, or codes like `[31m` | The console doesn't understand UTF-8 or colors. Use `--no-color`, or `--format msbuild`. |
 | `error: unknown time zone` | Use a Windows name (`Central European Standard Time`) or an IANA name (`Europe/Berlin`). |
+| `Settings file 'DotnetToolSettings.xml' was not found in the package` | The .NET SDK that runs `dotnet tool install` is older than the tool. Versions before 1.3.0 need the .NET 10 SDK; in a VS Code terminal the SDK of the Logic Apps extension (8.0) can come first in `PATH`. Install 1.3.0 or later, or call the newer SDK by its full path: `& "C:\Program Files\dotnet\dotnet.exe" tool install --global LogicApps.Liquid.Cli`. |
 | `la-liquid` not found after installing | Open a new terminal, or add `%USERPROFILE%\.dotnet\tools` (Windows) or `~/.dotnet/tools` to `PATH`. |
 | Logic Apps Consumption | Works the same: the same DotLiquid version, according to Microsoft. |
