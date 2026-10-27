@@ -20,6 +20,9 @@ public static class DiagnosticCodes
     /// <summary>A single <c>}</c> inside <c>{{ }}</c>, also inside quotes, ends the output for DotLiquid, so the map fails to parse.</summary>
     public const string BraceInOutput = "LQ005";
 
+    /// <summary>An extra <c>{</c> at the start of an output (<c>{{{ x }}</c>): Logic Apps writes a 'Liquid error' instead of the value.</summary>
+    public const string ExtraOpeningBrace = "LQ006";
+
     /// <summary>A filter written in snake_case or lowercase (<c>upcase</c>) instead of C# naming (<c>Upcase</c>). Logic Apps silently skips it.</summary>
     public const string FilterCasing = "LQ010";
 

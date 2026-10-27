@@ -36,6 +36,11 @@ public static class DiagnosticCatalog
             "DotLiquid ends an output at the first '}', also inside quotes, so the map fails to parse with 'Variable ... was not properly terminated'. A '}' inside {% %} is fine.",
             "{{ content.items | Default: '{}' }}",
             "{% assign braces = '{}' %}{{ content.items | Default: braces }}"),
+        Describe(DiagnosticCodes.ExtraOpeningBrace, DiagnosticCategory.Syntax, Error, "Extra '{' at the start of {{ }}",
+            "With three opening braces, DotLiquid reads the third '{' as part of the expression. Logic Apps does not fail, but writes 'Liquid error: Value cannot be null. (Parameter 'input')' " +
+            "instead of the value. Without a space after the extra brace ('{{{x}}') it happens to work.",
+            "<action>{{{ content.onclick }}</action>  → <action>Liquid error: Value cannot be null. (Parameter 'input')</action>",
+            "<action>{{ content.onclick }}</action>, or '{ {{ ... }}' when the first '{' is meant as text"),
 
         // Filters
         Describe(DiagnosticCodes.FilterCasing, DiagnosticCategory.Filters, Error, "Filter in Shopify style is skipped",

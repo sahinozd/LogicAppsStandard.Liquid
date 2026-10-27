@@ -119,6 +119,7 @@ public static class ConformanceCases
         yield return ResearchText("Research: Sort with whole and decimal numbers fails", "[{% assign s = content.mixed | Sort %}{{ s | Join: ',' }}]");
         yield return ResearchText("Research: list indexes", "[{{ content.words[0] }}]|[{{ content.words.0 }}]|[{{ content.words[5] }}]|[{{ content.words[-1] }}]");
         yield return ResearchText("Research: a single brace ends an output", "[{{ content.x | Default: '{}' }}]");
+        yield return ResearchText("Research: an extra opening brace", "[{{{ content.s }}]|[{{{content.s}}]|[{{{ content.s }}}]|[{{ content.s }}}]|{ {{ content.s }} }");
         yield return new ConformanceCase("Research: JSONArrayFor has no forloop", "[{% JSONArrayFor x in content.nums %}{\"i\": {{ forloop.index }}}{% endJSONArrayFor %}]", Research, LiquidTransformKind.JsonToJson);
         yield return ResearchText("Research: Replace with dollar signs in the replacement", "[{{ 'a' | Replace: 'a', '$$' }}]|[{{ 'a' | Replace: 'a', '$0$0' }}]|[{{ 'EUR' | Replace: 'EUR', '$' }}]");
         yield return ResearchText("Research: Split on a space", "[{{ ' a b  c ' | Split: ' ' | Size }}]|[{{ 'a,,b,' | Split: ',' | Size }}]");

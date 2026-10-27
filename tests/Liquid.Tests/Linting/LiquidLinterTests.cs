@@ -369,6 +369,29 @@ public sealed class LiquidLinterTests
         Assert.That(diagnostic.Column, Is.EqualTo(column), "points at the '}'");
     }
 
+    [TestCase("<action>{{{ content.onclick }}</action>", DiagnosticSeverity.Error)]
+    [TestCase("<action>{{{content.onclick}}</action>", DiagnosticSeverity.Warning)]
+    public void Lint_Should_Report_Extra_Opening_Brace_When_Output_Starts_With_Three_Braces(string map, DiagnosticSeverity severity)
+    {
+        // Act
+        var diagnostic = LintAndFind(map, DiagnosticCodes.ExtraOpeningBrace);
+
+        // Assert
+        Assert.That(diagnostic.Severity, Is.EqualTo(severity));
+        Assert.That(diagnostic.Column, Is.EqualTo(11), "points at the third '{'");
+    }
+
+    [TestCase("{ {{ content.key }}: 1 }")]
+    [TestCase("{\"total\": {{ content.total }}}")]
+    public void Lint_Should_Not_Report_Extra_Brace_When_Brace_Is_Json_Text(string map)
+    {
+        // Act
+        var diagnostics = _linter.Lint(map);
+
+        // Assert
+        Assert.That(diagnostics.Select(d => d.Code), Does.Not.Contain(DiagnosticCodes.ExtraOpeningBrace));
+    }
+
     [Test]
     public void Lint_Should_Not_Report_Brace_When_It_Is_Inside_A_Tag()
     {
