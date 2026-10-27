@@ -2,7 +2,7 @@
 
 All notable changes to `la-liquid` and the `LogicApps.Liquid` library. The release pipeline publishes the section of a version as its release notes, so every version tag needs a section here.
 
-## [1.4.0] - Unreleased
+## [1.4.0] - 2026-10-27
 
 ### Added
 - LQ006: an extra `{` at the start of an output (`{{{ x }}`). Logic Apps doesn't fail, but writes `Liquid error: Value cannot be null. (Parameter 'input')` instead of the value. Without a space after the extra brace it happens to work, which is reported as a warning. The cryptic render error is merged into this finding, at the place in the map to fix.
