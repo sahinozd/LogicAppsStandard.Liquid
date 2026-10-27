@@ -22,7 +22,7 @@
       "detail": "Validates the open .liquid file. Findings appear in the Problems panel.",
       "type": "process",
       "command": "dotnet",
-      "args": ["run", "--project", "${workspaceFolder}/source/Liquid.Cli", "--", "validate", "--map", "${file}", "--format", "msbuild"],
+      "args": ["run", "--project", "${workspaceFolder}/source/Liquid.Cli", "--framework", "net10.0", "--", "validate", "--map", "${file}", "--format", "msbuild"],
       "problemMatcher": {
         "base": "$msCompile",
         "fileLocation": "absolute"
@@ -35,7 +35,7 @@
       "type": "process",
       "command": "dotnet",
       "args": [
-        "run", "--project", "${workspaceFolder}/source/Liquid.Cli", "--",
+        "run", "--project", "${workspaceFolder}/source/Liquid.Cli", "--framework", "net10.0", "--",
         "transform", "--map", "${file}", "--input", "${input:inputFile}", "--output", "${input:outputFile}", "--format", "msbuild"
       ],
       "problemMatcher": {
@@ -48,7 +48,7 @@
       "label": "la-liquid: test samples",
       "type": "process",
       "command": "dotnet",
-      "args": ["run", "--project", "${workspaceFolder}/source/Liquid.Cli", "--", "test", "--suite", "${workspaceFolder}/samples/liquid-tests.json", "--format", "msbuild"],
+      "args": ["run", "--project", "${workspaceFolder}/source/Liquid.Cli", "--framework", "net10.0", "--", "test", "--suite", "${workspaceFolder}/samples/liquid-tests.json", "--format", "msbuild"],
       "problemMatcher": {
         "base": "$msCompile",
         "fileLocation": "absolute"
