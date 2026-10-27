@@ -26,6 +26,21 @@ samples/maps/common-mistakes.liquid  JsonToJson (inferred)
 
 ## Why
 
+I built this tool because Liquid in Logic Apps is hard to debug during development.
+
+Testing a change to a map used to go like this for me: commit the map, let the Azure DevOps pipeline deploy the Logic App to the development environment, run the workflow manually or with a transformation test from the [testing framework](https://github.com/sahinozd/LogicAppsStandard.Testing), and open the run history to see what the Liquid action did. A full deployment easily takes 10 to 30 minutes. Per attempt, per environment: once it works in development, the same again for test.
+
+And most of the time, the run history didn't even show a failure. The workflow was green, but a property was empty, or a value was simply wrong.
+
+Existing tools can render a DotLiquid template, but they don't run it with the setup of Logic Apps, and they don't tell you *what* is wrong. I wanted answers before deploying anything:
+
+- Does this map behave in Logic Apps the way I think it does?
+- And if not, where exactly, and what should I write instead?
+
+That is what `la-liquid` does: on your machine in seconds, and in your Azure DevOps or GitHub pipeline before anything is deployed.
+
+### What goes wrong
+
 The Liquid that Logic Apps runs is not the Liquid in the Shopify documentation, and most mistakes do **not** fail the workflow. They silently produce a wrong output:
 
 | You write | Shopify Liquid | Logic Apps |
