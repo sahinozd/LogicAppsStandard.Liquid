@@ -48,7 +48,7 @@ dotnet tool install --global LogicApps.Liquid.Cli --add-source sahinozd
 
 ```powershell
 git clone https://github.com/sahinozd/LogicAppsStandard.Liquid.git
-dotnet run --project LogicAppsStandard.Liquid/source/Liquid.Cli -- validate --map LogicAppsStandard.Liquid/samples/maps
+dotnet run --project LogicAppsStandard.Liquid/source/Liquid.Cli --framework net10.0 -- validate --map LogicAppsStandard.Liquid/samples/maps
 ```
 
 ---

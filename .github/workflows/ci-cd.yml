@@ -115,7 +115,7 @@ jobs:
 
       # Dogfooding: the sample maps are tested with the tool itself, exactly like a consumer pipeline would.
       - name: Run Liquid sample suite
-        run: dotnet run --project ${{ env.CLI_PROJECT }} --configuration Release --no-build -- test --suite samples/liquid-tests.json --junit ./TestResults/liquid/samples.xml
+        run: dotnet run --project ${{ env.CLI_PROJECT }} --framework net10.0 --configuration Release --no-build -- test --suite samples/liquid-tests.json --junit ./TestResults/liquid/samples.xml
 
       - name: Publish .NET test report
         uses: dorny/test-reporter@v3

@@ -59,7 +59,7 @@ steps:
       testResultsFiles: $(Agent.TempDirectory)/test-results/*.trx
 
   # Dogfooding: run the sample maps through the tool, exactly like a consumer pipeline would.
-  - script: dotnet run --project source/Liquid.Cli --configuration $(buildConfiguration) --no-build -- test --suite samples/liquid-tests.json --junit $(Agent.TempDirectory)/liquid-results/samples.xml
+  - script: dotnet run --project source/Liquid.Cli --framework net10.0 --configuration $(buildConfiguration) --no-build -- test --suite samples/liquid-tests.json --junit $(Agent.TempDirectory)/liquid-results/samples.xml
     displayName: Liquid sample tests
 
   - task: PublishTestResults@2
